@@ -43,6 +43,10 @@ Commands default to one use per user every five seconds. This is configurable wi
 
 The process also handles `SIGINT` and `SIGTERM` by closing the Discord client before exiting.
 
+## 🩺 Health checks
+
+The built-in HTTP server listens on `PORT` (default `3000`). Configure Railway's health check path as `/readyz`; it returns `200` after the Discord client is ready and `503` before then. `/healthz` reports process liveness, and unknown paths return `404`.
+
 ## 💁‍♀️ How to use
 
 - Install dependencies with `pnpm install`

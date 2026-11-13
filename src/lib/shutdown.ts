@@ -10,7 +10,8 @@ export function createShutdownHandler(
 	logger: ShutdownLogger,
 	setExitCode: (code: number) => void = (code) => {
 		process.exitCode = code;
-	}
+	},
+	cleanup?: () => Promise<void>
 ): (signal: ShutdownSignal) => Promise<void> {
 	let shutdownPromise: Promise<void> | undefined;
 
@@ -19,21 +20,28 @@ export function createShutdownHandler(
 
 		shutdownPromise = (async () => {
 			logger.info(`Received ${signal}; shutting down.`);
+			let failed = false;
+			try {
+				await cleanup?.();
+			} catch (error) {
+				logger.error(error, 'Failed to close auxiliary services cleanly');
+				failed = true;
+			}
 			try {
 				await client.destroy();
-				setExitCode(0);
 			} catch (error) {
 				logger.error(error, 'Failed to shut down the Discord client cleanly');
-				setExitCode(1);
+				failed = true;
 			}
+			setExitCode(failed ? 1 : 0);
 		})();
 
 		return shutdownPromise;
 	};
 }
 
-export function registerShutdownHandlers(client: ShutdownClient, logger: ShutdownLogger): void {
-	const shutdown = createShutdownHandler(client, logger);
+export function registerShutdownHandlers(client: ShutdownClient, logger: ShutdownLogger, cleanup?: () => Promise<void>): void {
+	const shutdown = createShutdownHandler(client, logger, undefined, cleanup);
 	process.on('SIGINT', () => {
 		void shutdown('SIGINT');
 	});
