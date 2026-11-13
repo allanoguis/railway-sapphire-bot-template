@@ -27,7 +27,7 @@ function applyBotPresence(client: Pick<Client, 'user'>): void {
 	}
 
 	user.setPresence({
-		activities: [{ name: hasEncounteredError ? 'service error' : 'Brewing coffee 🍵' }],
+		activities: [{ name: hasEncounteredError ? 'Service Error 🚨' : 'Brewing coffee 🍵' }],
 		status: 'online'
 	});
 }
