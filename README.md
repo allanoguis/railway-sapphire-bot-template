@@ -1,22 +1,22 @@
 ---
-title: Discord Sapphire Bot
-description: A basic Discord bot template using Discord.js and the Sapphire library.
+title: Token Discord Bot Template
+description: Token is a Discord bot template built with Discord.js and the Sapphire framework.
 tags:
   - typescript
   - javascript
   - discord
-  - sapphire
+  - token
 ---
 
-# Discord Sapphire Bot template
+# Token Discord Bot Template
 
-This is a basic Discord bot template using Discord.js and the [Sapphire](https://www.sapphirejs.dev/) library.
+Token is a basic Discord bot template built with Discord.js and the [Sapphire](https://www.sapphirejs.dev/) framework.
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/4v1jeR?referralCode=6QmbhN)
 
 ## ✨ Features
 
-- Sapphire
+- Discord.js and Sapphire
 - TypeScript
 - `/help` command discovery
 - `/about` runtime details
