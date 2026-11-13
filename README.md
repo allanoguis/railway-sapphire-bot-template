@@ -16,12 +16,18 @@ This is a basic Discord bot template using Discord.js and the [Sapphire](https:/
 
 ## ✨ Features
 
-- Sapphiure
+- Sapphire
 - TypeScript
+
+## ⚙️ Configuration
+
+- Copy `.env.example` to `.env` and set `DISCORD_TOKEN` to your Discord bot token.
+- For Railway, add `DISCORD_TOKEN` to the service's Variables; do not commit your `.env` file.
 
 ## 💁‍♀️ How to use
 
 - Install dependencies with `pnpm install`
+- Configure `DISCORD_TOKEN` as described above
 - Connect to your Railway project `railway link`
 - Build the bot `pnpm build`
 - Start the bot `railway run pnpm start`

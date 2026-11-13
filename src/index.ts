@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { LogLevel, SapphireClient } from '@sapphire/framework';
 import { Logger } from '@sapphire/plugin-logger';
 import '@sapphire/plugin-logger/register';
@@ -8,24 +9,28 @@ const client = new SapphireClient({
 	logger: {
 		instance: new Logger({ level: LogLevel.Debug })
 	},
-	intents: [GatewayIntentBits.DirectMessages, GatewayIntentBits.GuildMessages, GatewayIntentBits.Guilds, GatewayIntentBits.MessageContent],
-	loadMessageCommandListeners: true
+	intents: [GatewayIntentBits.Guilds]
 });
 
 const main = async () => {
 	try {
+		const token = process.env.DISCORD_TOKEN?.trim();
+		if (!token) {
+			throw new Error('Missing required environment variable: DISCORD_TOKEN');
+		}
+
 		client.logger.info('Logging in');
-		await client.login(process.env.DISCORD_TOKEN);
+		await client.login(token);
 		client.logger.info('Logged in');
 	} catch (error) {
 		client.logger.fatal(error);
-		client.destroy();
+		await client.destroy();
 		process.exit(1);
 	}
 };
 
-main().catch((error) => {
+void main().catch(async (error) => {
 	client.logger.fatal(error);
-	client.destroy();
+	await client.destroy();
 	process.exit(1);
 });
