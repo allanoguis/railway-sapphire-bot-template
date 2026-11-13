@@ -3,6 +3,7 @@ export interface BotConfig {
 	readonly commandCooldownDelayMs: number;
 	readonly commandCooldownLimit: number;
 	readonly healthPort?: number;
+	readonly databaseUrl?: string;
 }
 
 function getPositiveInteger(environment: NodeJS.ProcessEnv, name: string, defaultValue: number): number {
@@ -29,6 +30,24 @@ function getPort(environment: NodeJS.ProcessEnv): number | undefined {
 	return port;
 }
 
+function getDatabaseUrl(environment: NodeJS.ProcessEnv): string | undefined {
+	const databaseUrl = environment.DATABASE_URL?.trim();
+	if (!databaseUrl) return undefined;
+
+	let parsedUrl: URL;
+	try {
+		parsedUrl = new URL(databaseUrl);
+	} catch {
+		throw new Error('DATABASE_URL must be a valid PostgreSQL connection URL.');
+	}
+
+	if (parsedUrl.protocol !== 'postgres:' && parsedUrl.protocol !== 'postgresql:') {
+		throw new Error('DATABASE_URL must use the postgres:// or postgresql:// scheme.');
+	}
+
+	return databaseUrl;
+}
+
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): BotConfig {
 	const discordToken = environment.DISCORD_TOKEN?.trim();
 
@@ -37,11 +56,13 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): BotCon
 	}
 
 	const healthPort = getPort(environment);
+	const databaseUrl = getDatabaseUrl(environment);
 
 	return {
 		discordToken,
 		commandCooldownDelayMs: getPositiveInteger(environment, 'COMMAND_COOLDOWN_DELAY_MS', 5000),
 		commandCooldownLimit: getPositiveInteger(environment, 'COMMAND_COOLDOWN_LIMIT', 1),
-		...(healthPort === undefined ? {} : { healthPort })
+		...(healthPort === undefined ? {} : { healthPort }),
+		...(databaseUrl === undefined ? {} : { databaseUrl })
 	};
 }

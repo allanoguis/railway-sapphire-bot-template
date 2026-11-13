@@ -43,6 +43,10 @@ Commands default to one use per user every five seconds. This is configurable wi
 
 The process also handles `SIGINT` and `SIGTERM` by closing the Discord client before exiting.
 
+## 🗄️ Persistent storage
+
+Set `DATABASE_URL` to a PostgreSQL connection URL to enable the shared `container.storage` service. On startup it creates an idempotent `bot_settings` table with JSONB values; the service provides `get(scope, key)`, `set(scope, key, value)`, and `delete(scope, key)` methods. The setting scope can be `global` or a namespaced value such as `guild:<guild-id>`. Without `DATABASE_URL`, storage stays disabled and the bot logs a warning. A configured but unreachable database fails startup so the application does not silently run without persistence.
+
 ## 🩺 Health checks
 
 The built-in HTTP server listens on `PORT` (default `3000`). Configure Railway's health check path as `/readyz`; it returns `200` after the Discord client is ready and `503` before then. `/healthz` reports process liveness, and unknown paths return `404`.
