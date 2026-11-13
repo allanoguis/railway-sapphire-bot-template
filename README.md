@@ -20,6 +20,7 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 - TypeScript
 - `/help` command discovery
 - `/about` runtime details
+- `/debug-status` to enable or disable the construction status
 
 ## ⚙️ Configuration
 
@@ -29,10 +30,10 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 
 ## 🔐 Command permissions
 
-The built-in `GuildOnly` precondition restricts `/ping` to servers. For staff commands, the custom `StaffOnly` precondition requires the user to have Manage Messages:
+The built-in `GuildOnly` precondition restricts `/ping` to servers. The `/debug-status` command requires the user to have Manage Messages permission:
 
 ```ts
-preconditions: ['GuildOnly', 'StaffOnly']
+requiredUserPermissions: PermissionFlagsBits.ManageMessages
 ```
 
 Sapphire's built-in `requiredUserPermissions` and `requiredClientPermissions` options are also available when a command needs different permission requirements.
