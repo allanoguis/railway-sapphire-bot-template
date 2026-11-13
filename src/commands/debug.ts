@@ -4,11 +4,11 @@ import { PermissionFlagsBits } from 'discord.js';
 import { setDebugStatus } from '../lib/presence';
 
 @ApplyOptions<Command.Options>({
-	name: 'debug-status',
+	name: 'debug',
 	description: 'Set the bot status to under construction or restore its normal status.',
 	requiredUserPermissions: PermissionFlagsBits.ManageMessages
 })
-export class DebugStatusCommand extends Command {
+export class DebugCommand extends Command {
 	public override registerApplicationCommands(registry: ChatInputCommand.Registry) {
 		registry.registerChatInputCommand((builder) =>
 			builder
