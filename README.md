@@ -18,6 +18,8 @@ This is a basic Discord bot template using Discord.js and the [Sapphire](https:/
 
 - Sapphire
 - TypeScript
+- `/help` command discovery
+- `/about` runtime details
 
 ## ⚙️ Configuration
 
