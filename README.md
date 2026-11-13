@@ -24,6 +24,16 @@ This is a basic Discord bot template using Discord.js and the [Sapphire](https:/
 - Copy `.env.example` to `.env` and set `DISCORD_TOKEN` to your Discord bot token.
 - For Railway, add `DISCORD_TOKEN` to the service's Variables; do not commit your `.env` file.
 
+## 🔐 Command permissions
+
+The built-in `GuildOnly` precondition restricts `/ping` to servers. For staff commands, the custom `StaffOnly` precondition requires the user to have Manage Messages:
+
+```ts
+preconditions: ['GuildOnly', 'StaffOnly']
+```
+
+Sapphire's built-in `requiredUserPermissions` and `requiredClientPermissions` options are also available when a command needs different permission requirements.
+
 ## 💁‍♀️ How to use
 
 - Install dependencies with `pnpm install`
