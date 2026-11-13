@@ -3,6 +3,7 @@ import { LogLevel, SapphireClient } from '@sapphire/framework';
 import { Logger } from '@sapphire/plugin-logger';
 import '@sapphire/plugin-logger/register';
 import { GatewayIntentBits } from 'discord.js';
+import { loadConfig } from './config';
 
 const client = new SapphireClient({
 	caseInsensitiveCommands: true,
@@ -14,13 +15,9 @@ const client = new SapphireClient({
 
 const main = async () => {
 	try {
-		const token = process.env.DISCORD_TOKEN?.trim();
-		if (!token) {
-			throw new Error('Missing required environment variable: DISCORD_TOKEN');
-		}
-
+		const { discordToken } = loadConfig();
 		client.logger.info('Logging in');
-		await client.login(token);
+		await client.login(discordToken);
 		client.logger.info('Logged in');
 	} catch (error) {
 		client.logger.fatal(error);
