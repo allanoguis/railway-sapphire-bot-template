@@ -9,7 +9,7 @@ export function setBotPresence(client: Pick<Client, 'user'>, hasError: boolean):
 	if (!user) return;
 
 	user.setPresence({
-		activities: [{ name: hasEncounteredError ? 'service error' : 'brewing coffee' }],
+		activities: [{ name: hasEncounteredError ? 'service error' : 'Brewing coffee 🍵' }],
 		status: 'online'
 	});
 }
