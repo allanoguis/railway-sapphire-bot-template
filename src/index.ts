@@ -4,6 +4,7 @@ import { Logger } from '@sapphire/plugin-logger';
 import '@sapphire/plugin-logger/register';
 import { GatewayIntentBits } from 'discord.js';
 import { loadConfig } from './config';
+import { registerShutdownHandlers } from './lib/shutdown';
 
 const logger = new Logger({ level: LogLevel.Debug });
 let client: SapphireClient | undefined;
@@ -21,6 +22,7 @@ const main = async () => {
 				limit: config.commandCooldownLimit
 			}
 		});
+		registerShutdownHandlers(client, logger);
 
 		logger.info('Logging in');
 		await client.login(config.discordToken);

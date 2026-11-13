@@ -39,6 +39,8 @@ Sapphire's built-in `requiredUserPermissions` and `requiredClientPermissions` op
 
 Commands default to one use per user every five seconds. This is configurable with the two cooldown variables above; individual commands can override the default with Sapphire's `cooldownDelay` and `cooldownLimit` options.
 
+The process also handles `SIGINT` and `SIGTERM` by closing the Discord client before exiting.
+
 ## 💁‍♀️ How to use
 
 - Install dependencies with `pnpm install`
