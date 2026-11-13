@@ -22,6 +22,7 @@ This is a basic Discord bot template using Discord.js and the [Sapphire](https:/
 ## ⚙️ Configuration
 
 - Copy `.env.example` to `.env` and set `DISCORD_TOKEN` to your Discord bot token.
+- Optionally adjust `COMMAND_COOLDOWN_DELAY_MS` and `COMMAND_COOLDOWN_LIMIT` to change the default per-user command cooldown.
 - For Railway, add `DISCORD_TOKEN` to the service's Variables; do not commit your `.env` file.
 
 ## 🔐 Command permissions
@@ -33,6 +34,10 @@ preconditions: ['GuildOnly', 'StaffOnly']
 ```
 
 Sapphire's built-in `requiredUserPermissions` and `requiredClientPermissions` options are also available when a command needs different permission requirements.
+
+## ⏱️ Command cooldowns
+
+Commands default to one use per user every five seconds. This is configurable with the two cooldown variables above; individual commands can override the default with Sapphire's `cooldownDelay` and `cooldownLimit` options.
 
 ## 💁‍♀️ How to use
 

@@ -1,33 +1,38 @@
 import 'dotenv/config';
-import { LogLevel, SapphireClient } from '@sapphire/framework';
+import { BucketScope, LogLevel, SapphireClient } from '@sapphire/framework';
 import { Logger } from '@sapphire/plugin-logger';
 import '@sapphire/plugin-logger/register';
 import { GatewayIntentBits } from 'discord.js';
 import { loadConfig } from './config';
 
-const client = new SapphireClient({
-	caseInsensitiveCommands: true,
-	logger: {
-		instance: new Logger({ level: LogLevel.Debug })
-	},
-	intents: [GatewayIntentBits.Guilds]
-});
+const logger = new Logger({ level: LogLevel.Debug });
+let client: SapphireClient | undefined;
 
 const main = async () => {
 	try {
-		const { discordToken } = loadConfig();
-		client.logger.info('Logging in');
-		await client.login(discordToken);
-		client.logger.info('Logged in');
+		const config = loadConfig();
+		client = new SapphireClient({
+			caseInsensitiveCommands: true,
+			logger: { instance: logger },
+			intents: [GatewayIntentBits.Guilds],
+			defaultCooldown: {
+				scope: BucketScope.User,
+				delay: config.commandCooldownDelayMs,
+				limit: config.commandCooldownLimit
+			}
+		});
+
+		logger.info('Logging in');
+		await client.login(config.discordToken);
+		logger.info('Logged in');
 	} catch (error) {
-		client.logger.fatal(error);
-		await client.destroy();
+		logger.fatal(error);
+		await client?.destroy();
 		process.exit(1);
 	}
 };
 
-void main().catch(async (error) => {
-	client.logger.fatal(error);
-	await client.destroy();
+void main().catch((error) => {
+	logger.fatal(error);
 	process.exit(1);
 });
