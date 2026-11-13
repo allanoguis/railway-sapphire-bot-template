@@ -8,6 +8,7 @@ import type { Server } from 'node:http';
 import { loadConfig } from './config';
 import { closeHealthServer, createHealthServer, listenHealthServer } from './lib/health';
 import { PostgresStorage } from './lib/postgres-storage';
+import { setBotPresence } from './lib/presence';
 import { registerShutdownHandlers } from './lib/shutdown';
 
 const logger = new Logger({ level: LogLevel.Debug });
@@ -31,7 +32,10 @@ const main = async () => {
 		});
 		const server = createHealthServer(() => client?.isReady() ?? false);
 		healthServer = server;
-		server.on('error', (error) => logger.error(error, 'Health server error'));
+		server.on('error', (error) => {
+			if (client) setBotPresence(client, true);
+			logger.error(error, 'Health server error');
+		});
 		await listenHealthServer(server, config.healthPort ?? 3000);
 		registerShutdownHandlers(client, logger, async () => {
 			const errors: unknown[] = [];
@@ -50,7 +54,10 @@ const main = async () => {
 
 		if (config.databaseUrl) {
 			const pool = new Pool({ connectionString: config.databaseUrl });
-			pool.on('error', (error) => logger.error(error, 'Unexpected PostgreSQL pool error'));
+			pool.on('error', (error) => {
+				if (client) setBotPresence(client, true);
+				logger.error(error, 'Unexpected PostgreSQL pool error');
+			});
 			storage = new PostgresStorage(pool);
 			await storage.initialize();
 			container.storage = storage;
@@ -63,6 +70,7 @@ const main = async () => {
 		await client.login(config.discordToken);
 		logger.info('Logged in');
 	} catch (error) {
+		if (client) setBotPresence(client, true);
 		logger.fatal(error);
 		if (healthServer || storage) {
 			const errors: unknown[] = [];
@@ -84,6 +92,7 @@ const main = async () => {
 };
 
 void main().catch((error) => {
+	if (client) setBotPresence(client, true);
 	logger.fatal(error);
 	process.exit(1);
 });
