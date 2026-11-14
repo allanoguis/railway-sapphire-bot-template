@@ -1,7 +1,7 @@
 import { ApplyOptions } from '@sapphire/decorators';
 import { ChatInputCommand, Command } from '@sapphire/framework';
 import { buildTornProfileEmbed } from '../features/torn/presentation';
-import { getTornProfile, unlinkTornAccount } from '../features/torn/service';
+import { getTornProfile } from '../features/torn/service';
 
 @ApplyOptions<Command.Options>({
 	name: 'torn',
@@ -21,29 +21,10 @@ export class TornCommand extends Command {
 							option.setName('player-id').setDescription('Torn player ID; omit to view your paired profile.').setRequired(false)
 						)
 				)
-				.addSubcommand((subcommand) => subcommand.setName('unlink').setDescription('Delete your stored Torn API key.'))
 		);
 	}
 
 	public async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
-		const subcommand = interaction.options.getSubcommand();
-
-		if (subcommand === 'unlink') {
-			const { storage } = this.container;
-			if (!storage) {
-				return interaction.reply({
-					content: 'Torn account pairing is not configured by the bot administrator. Please contact them for help.',
-					flags: 'Ephemeral'
-				});
-			}
-
-			await interaction.deferReply({ flags: 'Ephemeral' });
-			const deleted = await unlinkTornAccount(storage, interaction.user.id);
-			return interaction.editReply({
-				content: deleted ? 'Your stored Torn API key has been deleted.' : 'You do not have a paired Torn account.'
-			});
-		}
-
 		const playerIdText = interaction.options.getString('player-id');
 		let playerId: number | undefined;
 		if (playerIdText !== null) {

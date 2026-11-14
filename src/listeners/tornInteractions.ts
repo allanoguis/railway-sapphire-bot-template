@@ -48,7 +48,7 @@ export class TornInteractionsListener extends Listener<typeof Events.Interaction
 			await interaction.editReply(
 				`Paired Torn account **${paired.name ?? 'Unknown'}** (ID ${
 					paired.playerId
-				}). Use \`/verify\` to confirm your key is still valid, \`/torn profile\` to view your profile, or \`/torn unlink\` to delete the stored key.`
+				}). Use \`/verify\` to confirm your key is still valid, \`/torn profile\` to view your profile, or \`/unpair\` to delete the stored key.`
 			);
 		} catch (error) {
 			this.container.logger.error(error, 'Failed to pair a Torn account');

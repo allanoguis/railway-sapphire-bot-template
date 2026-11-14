@@ -82,7 +82,7 @@ Commands should validate interaction input and call a feature service rather tha
 
 ## 🎮 Torn individual profiles
 
-- `/pair` displays the API-key use and storage disclosure, then opens a private modal. Only a Torn API key is accepted; never provide a Torn password. `/verify` revalidates the paired key with Torn and privately confirms whether it is still valid. `/torn unlink` deletes the encrypted key.
+- `/pair` displays the API-key use and storage disclosure, then opens a private modal. Only a Torn API key is accepted; never provide a Torn password. `/verify` revalidates the paired key with Torn and privately confirms whether it is still valid. `/unpair` deletes the encrypted key.
 - `/torn profile` with no player ID displays the caller's paired profile. `/torn profile player-id:<id>` looks up public profile data using `TORN_API_KEY`; private bars are shown only for the paired account.
 - User keys are encrypted with AES-256-GCM in PostgreSQL and require both `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. The key is used only for the paired user's profile and `/verify`. Keep the encryption key backed up; changing or losing it prevents decrypting paired API keys.
 - The bot requests only the Torn API `basic`, `profile`, `bars`, `cooldowns`, and `battlestats` selections as needed. Torn may reject unavailable selections based on the API key's access level. Responses are private to the requesting Discord user.

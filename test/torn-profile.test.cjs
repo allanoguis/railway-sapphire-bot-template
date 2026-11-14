@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { getTornProfile, pairTornAccount, verifyTornAccount } = require('../dist/features/torn/service.js');
+const { getTornProfile, pairTornAccount, unpairTornAccount, verifyTornAccount } = require('../dist/features/torn/service.js');
 
 function createStorage() {
 	const values = new Map();
@@ -127,4 +127,14 @@ test('verify revalidates a paired Torn key and reports when no key is paired', a
 		if (previousEncryptionKey === undefined) delete process.env.TORN_ENCRYPTION_KEY;
 		else process.env.TORN_ENCRYPTION_KEY = previousEncryptionKey;
 	}
+});
+
+test("unpair deletes only the requesting Discord user's credential", async () => {
+	const storage = createStorage();
+	await storage.set('user:discord-user-1', 'torn-api-credential', { playerId: 123 });
+	await storage.set('user:discord-user-2', 'torn-api-credential', { playerId: 456 });
+
+	assert.equal(await unpairTornAccount(storage, 'discord-user-1'), true);
+	assert.equal(await unpairTornAccount(storage, 'discord-user-1'), false);
+	assert.equal(storage.values.has('user:discord-user-2:torn-api-credential'), true);
 });

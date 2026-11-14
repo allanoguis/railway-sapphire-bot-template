@@ -232,7 +232,7 @@ export async function verifyTornAccount(
 	return { playerId: credential.playerId, name: profile.name };
 }
 
-export async function unlinkTornAccount(storage: TornStorage, discordUserId: string): Promise<boolean> {
+export async function unpairTornAccount(storage: TornStorage, discordUserId: string): Promise<boolean> {
 	return storage.delete(credentialScope(discordUserId), credentialSetting);
 }
 

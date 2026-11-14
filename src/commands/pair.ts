@@ -28,7 +28,7 @@ export class PairCommand extends Command {
 			.addFields(
 				{
 					name: 'Data storage',
-					value: 'Your API key is stored encrypted in this bot’s PostgreSQL database until you use `/torn unlink`.',
+					value: 'Your API key is stored encrypted in this bot’s PostgreSQL database until you use `/unpair`.',
 					inline: false
 				},
 				{
@@ -43,7 +43,7 @@ export class PairCommand extends Command {
 				},
 				{
 					name: 'Key storage & deletion',
-					value: 'The key is encrypted with AES-256-GCM at rest and can be deleted at any time with `/torn unlink`.',
+					value: 'The key is encrypted with AES-256-GCM at rest and can be deleted at any time with `/unpair`.',
 					inline: false
 				},
 				{
