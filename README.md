@@ -21,12 +21,15 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 - `/help` command discovery
 - `/about` runtime details
 - `/debug` to enable or disable the construction status
+- `/torn profile` for individual Torn profile information
 
 ## ⚙️ Configuration
 
 - Copy `.env.example` to `.env` and set `DISCORD_TOKEN` to your Discord bot token.
 - Optionally adjust `COMMAND_COOLDOWN_DELAY_MS` and `COMMAND_COOLDOWN_LIMIT` to change the default per-user command cooldown.
 - For Railway, add `DISCORD_TOKEN` to the service's Variables; do not commit your `.env` file.
+- For public Torn player lookups, optionally set `TORN_API_KEY` to a bot-owned Torn API key.
+- To enable private account linking, configure `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Generate the latter with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and keep it backed up securely; losing it makes stored Torn keys unusable.
 
 ## 🔐 Command permissions
 
@@ -65,6 +68,14 @@ src/
 ```
 
 Commands should validate interaction input and call a feature service rather than contain database or domain logic. Listeners should delegate event handling to the relevant service, while preconditions should focus on access checks. Keep shared infrastructure in `src/lib` and avoid importing one feature's command or listener into another. Sapphire pieces can use `this.container.storage`; it is `null` when `DATABASE_URL` is unset, so features that require persistence should handle that case explicitly.
+
+## 🎮 Torn individual profiles
+
+- `/torn profile` with no player ID displays the caller's linked profile. `/torn profile player-id:<id>` looks up public profile data using `TORN_API_KEY`; private bars are shown only for the linked account.
+- `/torn link` first displays the API-key use and storage disclosure, then opens a private modal. Only a Torn API key is accepted; never provide a Torn password. `/torn unlink` deletes the encrypted key.
+- User keys are encrypted with AES-256-GCM in PostgreSQL and require both `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. The key is used only for the linked user's profile. Keep the encryption key backed up; changing or losing it prevents decrypting linked API keys.
+- The bot requests only the Torn API `basic`, `profile`, `bars`, `cooldowns`, and `battlestats` selections as needed. Torn may reject unavailable selections based on the API key's access level. Responses are private to the requesting Discord user.
+- Faction management is intentionally not included in this individual-profile module.
 
 ## 🩺 Health checks
 

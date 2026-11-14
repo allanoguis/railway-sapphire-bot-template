@@ -4,6 +4,8 @@ export interface BotConfig {
 	readonly commandCooldownLimit: number;
 	readonly healthPort?: number;
 	readonly databaseUrl?: string;
+	readonly tornApiKey?: string;
+	readonly tornEncryptionKey?: Buffer;
 }
 
 function getPositiveInteger(environment: NodeJS.ProcessEnv, name: string, defaultValue: number): number {
@@ -48,6 +50,26 @@ function getDatabaseUrl(environment: NodeJS.ProcessEnv): string | undefined {
 	return databaseUrl;
 }
 
+function getTornApiKey(environment: NodeJS.ProcessEnv): string | undefined {
+	const apiKey = environment.TORN_API_KEY?.trim();
+	if (!apiKey) return undefined;
+	if (!/^[a-zA-Z0-9]{16}$/.test(apiKey)) {
+		throw new Error('TORN_API_KEY must be a 16-character Torn API key.');
+	}
+
+	return apiKey;
+}
+
+function getTornEncryptionKey(environment: NodeJS.ProcessEnv): Buffer | undefined {
+	const value = environment.TORN_ENCRYPTION_KEY?.trim();
+	if (!value) return undefined;
+	if (!/^[\da-fA-F]{64}$/.test(value)) {
+		throw new Error('TORN_ENCRYPTION_KEY must be a 64-character hexadecimal value (32 bytes).');
+	}
+
+	return Buffer.from(value, 'hex');
+}
+
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): BotConfig {
 	const discordToken = environment.DISCORD_TOKEN?.trim();
 
@@ -57,12 +79,18 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): BotCon
 
 	const healthPort = getPort(environment);
 	const databaseUrl = getDatabaseUrl(environment);
+	const tornApiKey = getTornApiKey(environment);
+	const tornEncryptionKey = getTornEncryptionKey(environment);
 
 	return {
 		discordToken,
 		commandCooldownDelayMs: getPositiveInteger(environment, 'COMMAND_COOLDOWN_DELAY_MS', 5000),
 		commandCooldownLimit: getPositiveInteger(environment, 'COMMAND_COOLDOWN_LIMIT', 1),
 		...(healthPort === undefined ? {} : { healthPort }),
-		...(databaseUrl === undefined ? {} : { databaseUrl })
+		...(databaseUrl === undefined ? {} : { databaseUrl }),
+		...(tornApiKey === undefined ? {} : { tornApiKey }),
+		...(tornEncryptionKey === undefined ? {} : { tornEncryptionKey })
 	};
 }
+
+export { getTornApiKey, getTornEncryptionKey };
