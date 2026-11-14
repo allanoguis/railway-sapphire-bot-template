@@ -59,8 +59,11 @@ const main = async () => {
 				logger.error(error, 'Unexpected PostgreSQL pool error');
 			});
 			storage = new PostgresStorage(pool);
-			await storage.initialize();
+			const legacySettingsRemain = await storage.initialize();
 			container.storage = storage;
+			if (legacySettingsRemain) {
+				logger.warn('Legacy bot_settings table retained because it contains data outside per-user Torn credentials');
+			}
 			logger.info('PostgreSQL storage initialized');
 		} else {
 			logger.warn('DATABASE_URL is not configured; persistent storage is disabled.');

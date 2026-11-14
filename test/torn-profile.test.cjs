@@ -6,14 +6,14 @@ function createStorage() {
 	const values = new Map();
 	return {
 		values,
-		async get(scope, key) {
-			return values.get(`${scope}:${key}`);
+		async getTornApi(discordId) {
+			return values.get(discordId);
 		},
-		async set(scope, key, value) {
-			values.set(`${scope}:${key}`, structuredClone(value));
+		async setTornApi(discordId, value) {
+			values.set(discordId, structuredClone(value));
 		},
-		async delete(scope, key) {
-			return values.delete(`${scope}:${key}`);
+		async deleteTornApi(discordId) {
+			return values.delete(discordId);
 		}
 	};
 }
@@ -29,6 +29,7 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 	try {
 		global.fetch = async (input) => {
 			const url = new URL(input);
+			assert.equal(url.origin, 'https://api.torn.com');
 			if (url.pathname === '/user/' && url.searchParams.get('selections') === 'basic') {
 				assert.equal(url.searchParams.get('key'), apiKey);
 				return { ok: true, json: async () => ({ player_id: 123, name: 'Profile Owner' }) };
@@ -57,7 +58,7 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 		};
 
 		assert.deepEqual(await pairTornAccount(storage, discordUserId, apiKey), { playerId: 123, name: 'Profile Owner' });
-		const credential = storage.values.get('user:discord-user-1:torn-api-credential');
+		const credential = storage.values.get('discord-user-1');
 		assert.equal(credential.playerId, 123);
 		assert.notEqual(credential.ciphertext, apiKey);
 		assert.equal(JSON.stringify(credential).includes(apiKey), false);
@@ -89,6 +90,27 @@ test('requires a paired user key for player ID profile requests', async () => {
 	} finally {
 		if (previousApiKey === undefined) delete process.env.TORN_API_KEY;
 		else process.env.TORN_API_KEY = previousApiKey;
+	}
+});
+
+test('surfaces Torn API key errors from non-success HTTP responses without storing the key', async () => {
+	const originalFetch = global.fetch;
+	const previousEncryptionKey = process.env.TORN_ENCRYPTION_KEY;
+	const storage = createStorage();
+	process.env.TORN_ENCRYPTION_KEY = 'ef'.repeat(32);
+
+	try {
+		global.fetch = async () => ({
+			ok: false,
+			json: async () => ({ error: { code: 2 } })
+		});
+
+		await assert.rejects(pairTornAccount(storage, 'discord-user-3', 'd'.repeat(16)), /API key was rejected/);
+		assert.equal(storage.values.has('discord-user-3'), false);
+	} finally {
+		global.fetch = originalFetch;
+		if (previousEncryptionKey === undefined) delete process.env.TORN_ENCRYPTION_KEY;
+		else process.env.TORN_ENCRYPTION_KEY = previousEncryptionKey;
 	}
 });
 
@@ -132,10 +154,10 @@ test('verify revalidates a paired Torn key and reports when no key is paired', a
 
 test("unpair deletes only the requesting Discord user's credential", async () => {
 	const storage = createStorage();
-	await storage.set('user:discord-user-1', 'torn-api-credential', { playerId: 123 });
-	await storage.set('user:discord-user-2', 'torn-api-credential', { playerId: 456 });
+	await storage.setTornApi('discord-user-1', { playerId: 123 });
+	await storage.setTornApi('discord-user-2', { playerId: 456 });
 
 	assert.equal(await unpairTornAccount(storage, 'discord-user-1'), true);
 	assert.equal(await unpairTornAccount(storage, 'discord-user-1'), false);
-	assert.equal(storage.values.has('user:discord-user-2:torn-api-credential'), true);
+	assert.equal(storage.values.has('discord-user-2'), true);
 });

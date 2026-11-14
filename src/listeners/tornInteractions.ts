@@ -1,6 +1,6 @@
 import { Events, Listener } from '@sapphire/framework';
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, type Interaction, type ModalActionRowComponentBuilder } from 'discord.js';
-import { pairTornAccount } from '../features/torn/service';
+import { pairTornAccount, TornApiError } from '../features/torn/service';
 
 export class TornInteractionsListener extends Listener<typeof Events.InteractionCreate> {
 	public constructor(context: Listener.LoaderContext) {
@@ -51,8 +51,13 @@ export class TornInteractionsListener extends Listener<typeof Events.Interaction
 				}). Use \`/verify\` to confirm your key is still valid, \`/torn profile\` to view your profile, or \`/unpair\` to delete the stored key.`
 			);
 		} catch (error) {
+			if (error instanceof TornApiError) {
+				await interaction.editReply(error.message);
+				return undefined;
+			}
+
 			this.container.logger.error(error, 'Failed to pair a Torn account');
-			await interaction.editReply(error instanceof Error ? error.message : 'Could not pair that Torn API key.');
+			await interaction.editReply('Could not pair that Torn API key right now. Please try again later.');
 		}
 
 		return undefined;

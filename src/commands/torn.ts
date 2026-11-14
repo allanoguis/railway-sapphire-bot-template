@@ -1,11 +1,11 @@
 import { ApplyOptions } from '@sapphire/decorators';
 import { ChatInputCommand, Command } from '@sapphire/framework';
 import { buildTornProfileEmbed } from '../features/torn/presentation';
-import { getTornProfile } from '../features/torn/service';
+import { getTornProfile, TornApiError } from '../features/torn/service';
 
 @ApplyOptions<Command.Options>({
 	name: 'torn',
-	description: 'View Torn player profiles using your paired Torn API key.',
+	description: 'View Torn player profiles using your paired Torn API key.'
 })
 export class TornCommand extends Command {
 	public override registerApplicationCommands(registry: ChatInputCommand.Registry) {
@@ -38,7 +38,14 @@ export class TornCommand extends Command {
 		}
 
 		await interaction.deferReply({ flags: 'Ephemeral' });
-		const result = await getTornProfile(this.container.storage, interaction.user.id, playerId);
-		return interaction.editReply({ embeds: [buildTornProfileEmbed(result.profile, result.isLinkedProfile)] });
+		try {
+			const result = await getTornProfile(this.container.storage, interaction.user.id, playerId);
+			return interaction.editReply({ embeds: [buildTornProfileEmbed(result.profile, result.isLinkedProfile)] });
+		} catch (error) {
+			if (error instanceof TornApiError) return interaction.editReply(error.message);
+
+			this.container.logger.error(error, 'Failed to fetch a Torn profile');
+			return interaction.editReply('Could not fetch the Torn profile right now. Please try again later.');
+		}
 	}
 }

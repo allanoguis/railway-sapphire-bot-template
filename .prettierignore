@@ -12,6 +12,7 @@ package.json
 pnpm-lock.yaml
 
 README.md
+/progress.md
 
 tsconfig.json
 tsconfig.eslint.json

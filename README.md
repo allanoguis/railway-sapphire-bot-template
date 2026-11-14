@@ -37,7 +37,7 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 - In the bot service's Variables, set `DISCORD_TOKEN` and set `DATABASE_URL` to a Railway service reference such as `${{Postgres.DATABASE_URL}}` (replace `Postgres` with the exact database service name). The bot only needs `DATABASE_URL`; do not copy the database's individual `PG*` or `POSTGRES_*` variables.
 - Use `pnpm install --frozen-lockfile && pnpm build` as the build command and `pnpm start` as the start command. The package pins pnpm to match the existing lockfile.
 - Railway supplies `PORT`; the health server listens on it. Set the deployment health check path to `/readyz`.
-- On its first successful startup, the bot creates the minimal `bot_settings` table automatically. No manual schema setup or seed data is needed. The database user must have permission to create tables in the target schema. Check the deployment logs for `PostgreSQL storage initialized` and `Ready as ...`.
+- On its first successful startup, the bot creates the minimal `verified_users` table automatically. No manual schema setup or seed data is needed. The database user must have permission to create tables in the target schema. Check the deployment logs for `PostgreSQL storage initialized` and `Ready as ...`.
 - The Postgres internal hostname is only reachable inside the Railway environment. A local connection using that URL will fail to resolve; do not enable a public TCP proxy just for bot-to-database traffic.
 - Keep appropriate PostgreSQL backups enabled. Each bot process uses a PostgreSQL connection pool (up to 10 connections by default), so account for all replicas when scaling.
 
@@ -59,7 +59,7 @@ The process also handles `SIGINT` and `SIGTERM` by closing the Discord client be
 
 ## 🗄️ Persistent storage
 
-Set `DATABASE_URL` to a PostgreSQL connection URL to enable the shared `container.storage` service. On startup it creates an idempotent `bot_settings` table with JSONB values; the service provides `get(scope, key)`, `set(scope, key, value)`, and `delete(scope, key)` methods. The setting scope can be `global` or a namespaced value such as `guild:<guild-id>`. Without `DATABASE_URL`, storage stays disabled and the bot logs a warning. A configured but unreachable database fails startup so the application does not silently run without persistence.
+Set `DATABASE_URL` to a PostgreSQL connection URL to enable the `container.storage` service. It creates `verified_users` with one row per Discord user: `discord_id` is the primary key, `torn_api` is a JSONB encrypted-credential envelope, and `updated_at` records the last pairing update. On startup, the bot migrates matching per-user Torn credentials from the legacy `bot_settings` table and drops that table when it contains no unrelated settings. If unrelated legacy data remains, the bot preserves the old table and logs a warning rather than deleting that data. Without `DATABASE_URL`, storage stays disabled and the bot logs a warning. A configured but unreachable database fails startup so the application does not silently run without persistence.
 
 ## 🧩 Feature module conventions
 
@@ -82,6 +82,7 @@ Commands should validate interaction input and call a feature service rather tha
 ## 🎮 Torn individual profiles
 
 - `/pair` displays the API-key use and storage disclosure, then opens a private modal. Only a Torn API key is accepted; never provide a Torn password. `/verify` revalidates the paired key with Torn and privately confirms whether it is still valid. `/unpair` deletes the encrypted key.
+- Pairing and verification call Torn API v1 with `GET https://api.torn.com/user/?selections=basic&key=...`. `/verify` loads and decrypts only the invoking Discord user's stored key, then confirms Torn returns the same player ID that was paired.
 - `/torn profile` uses the caller's own paired Torn API key for every request. With no player ID it displays the caller's own profile; with `player-id:<id>` it requests that player's profile using the caller's key. Torn may restrict the returned data based on that key's access level.
 - Each user's key is encrypted with AES-256-GCM in PostgreSQL and is used for `/verify` and that user's profile requests. Pairing requires both `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Keep the encryption key backed up; changing or losing it prevents decrypting paired API keys.
 - The bot requests only the Torn API `basic`, `profile`, `bars`, `cooldowns`, and `battlestats` selections as needed. Torn may reject unavailable selections based on the API key's access level. Responses are private to the requesting Discord user.

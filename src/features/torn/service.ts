@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import type { JsonValue, PostgresStorage } from '../../lib/postgres-storage';
 import { getTornEncryptionKey } from '../../config';
 
-type TornStorage = Pick<PostgresStorage, 'get' | 'set' | 'delete'>;
+type TornStorage = Pick<PostgresStorage, 'getTornApi' | 'setTornApi' | 'deleteTornApi'>;
 
 interface TornBar {
 	current?: number;
@@ -68,9 +68,6 @@ export class TornApiError extends Error {
 	}
 }
 
-const credentialScope = (discordUserId: string) => `user:${discordUserId}`;
-const credentialSetting = 'torn-api-credential';
-
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
 }
@@ -84,7 +81,7 @@ function readStoredCredential(value: JsonValue | undefined): StoredCredential | 
 		typeof value.authTag !== 'string' ||
 		typeof value.ciphertext !== 'string'
 	) {
-		throw new Error('Stored Torn account data is invalid. Unlink and pair the account again.');
+		throw new TornApiError('Stored Torn account data is invalid. Unlink and pair the account again.');
 	}
 	return {
 		version: 1,
@@ -115,7 +112,7 @@ function decryptApiKey(credential: StoredCredential, encryptionKey: Buffer, disc
 		decipher.setAuthTag(Buffer.from(credential.authTag, 'base64'));
 		return Buffer.concat([decipher.update(Buffer.from(credential.ciphertext, 'base64')), decipher.final()]).toString('utf8');
 	} catch {
-		throw new Error('Stored Torn credentials could not be decrypted. Unlink and pair the account again.');
+		throw new TornApiError('Stored Torn credentials could not be decrypted. Unlink and pair the account again.');
 	}
 }
 
@@ -151,19 +148,17 @@ async function requestProfile(apiKey: string, playerId?: number, selections = 'b
 	try {
 		response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
 	} catch {
-		throw new Error('Could not connect to the Torn API. Please try again later.');
+		throw new TornApiError('Could not connect to the Torn API. Please try again later.');
 	}
 
 	let payload: unknown;
 	try {
 		payload = await response.json();
 	} catch {
-		throw new Error('Torn returned an unreadable response. Please try again later.');
+		throw new TornApiError('Torn returned an unreadable response. Please try again later.');
 	}
 
-	if (!response.ok || !isRecord(payload)) {
-		throw new Error('Torn returned an unexpected response. Please try again later.');
-	}
+	if (!isRecord(payload)) throw new TornApiError('Torn returned an unexpected response. Please try again later.');
 
 	const apiError = payload.error;
 	if (isRecord(apiError)) {
@@ -171,16 +166,17 @@ async function requestProfile(apiKey: string, playerId?: number, selections = 'b
 		throw new TornApiError(getApiErrorMessage(code));
 	}
 	if (apiError !== undefined) throw new TornApiError(getApiErrorMessage(undefined));
+	if (!response.ok) throw new TornApiError('Torn returned an unexpected response. Please try again later.');
 
 	if (typeof payload.player_id !== 'number') {
-		throw new Error('Torn did not return a player profile for this API key.');
+		throw new TornApiError('Torn did not return a player profile for this API key.');
 	}
 
 	return payload as TornProfile;
 }
 
 async function loadCredential(storage: TornStorage, discordUserId: string): Promise<StoredCredential | undefined> {
-	const value = await storage.get(credentialScope(discordUserId), credentialSetting);
+	const value = await storage.getTornApi(discordUserId);
 	return readStoredCredential(value);
 }
 
@@ -195,16 +191,16 @@ export async function pairTornAccount(
 ): Promise<{ playerId: number; name: string | undefined }> {
 	const encryptionKey = getTornEncryptionKey(process.env);
 	if (!encryptionKey) {
-		throw new Error('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
+		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
 	}
 	if (!/^[a-zA-Z0-9]{16}$/.test(apiKey)) {
-		throw new Error('Torn API keys must be 16 characters long. No key was stored.');
+		throw new TornApiError('Torn API keys must be 16 characters long. No key was stored.');
 	}
 
 	const { player_id: playerId, name } = await requestProfile(apiKey, undefined, 'basic');
-	if (typeof playerId !== 'number') throw new Error('Torn did not return a player ID for this API key.');
+	if (typeof playerId !== 'number') throw new TornApiError('Torn did not return a player ID for this API key.');
 	const encryptedKey = encryptApiKey(apiKey, encryptionKey, discordUserId);
-	await storage.set(credentialScope(discordUserId), credentialSetting, {
+	await storage.setTornApi(discordUserId, {
 		version: 1 as const,
 		playerId,
 		...encryptedKey
@@ -221,7 +217,7 @@ export async function verifyTornAccount(
 
 	const encryptionKey = getTornEncryptionKey(process.env);
 	if (!encryptionKey) {
-		throw new Error('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
+		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
 	}
 
 	const profile = await requestProfile(decryptApiKey(credential, encryptionKey, discordUserId), undefined, 'basic');
@@ -233,7 +229,7 @@ export async function verifyTornAccount(
 }
 
 export async function unpairTornAccount(storage: TornStorage, discordUserId: string): Promise<boolean> {
-	return storage.delete(credentialScope(discordUserId), credentialSetting);
+	return storage.deleteTornApi(discordUserId);
 }
 
 export async function getTornProfile(
@@ -242,17 +238,17 @@ export async function getTornProfile(
 	playerId?: number
 ): Promise<{ profile: TornProfile; isLinkedProfile: boolean }> {
 	if (storage === null) {
-		throw new Error('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
+		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
 	}
 
 	const credential = await loadCredential(storage, discordUserId);
 	if (!credential) {
-		throw new Error('Pair your Torn API key with `/pair` to request Torn profiles.');
+		throw new TornApiError('Pair your Torn API key with `/pair` to request Torn profiles.');
 	}
 
 	const encryptionKey = getTornEncryptionKey(process.env);
 	if (!encryptionKey) {
-		throw new Error('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
+		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
 	}
 
 	const apiKey = decryptApiKey(credential, encryptionKey, discordUserId);

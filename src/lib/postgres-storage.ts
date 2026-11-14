@@ -2,8 +2,8 @@ import type { Pool, QueryResultRow } from 'pg';
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
-interface SettingRow extends QueryResultRow {
-	value: JsonValue;
+interface VerifiedUserRow extends QueryResultRow {
+	torn_api: JsonValue;
 }
 
 export class PostgresStorage {
@@ -11,40 +11,71 @@ export class PostgresStorage {
 
 	public constructor(private readonly pool: Pick<Pool, 'query' | 'end'>) {}
 
-	public async initialize(): Promise<void> {
+	public async initialize(): Promise<boolean> {
 		await this.pool.query(`
-			CREATE TABLE IF NOT EXISTS bot_settings (
-				scope TEXT NOT NULL,
-				setting_key TEXT NOT NULL,
-				value JSONB NOT NULL,
-				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-				PRIMARY KEY (scope, setting_key)
+			CREATE TABLE IF NOT EXISTS verified_users (
+				discord_id TEXT PRIMARY KEY,
+				torn_api JSONB NOT NULL,
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 			)
 		`);
+
+		await this.pool.query(`
+			DO $$
+			BEGIN
+				PERFORM pg_advisory_xact_lock(hashtext('railway-sapphire-bot:verified-users-migration')::bigint);
+
+				IF to_regclass('bot_settings') IS NOT NULL THEN
+					INSERT INTO verified_users (discord_id, torn_api, updated_at)
+					SELECT substring(scope FROM 6), value, updated_at
+					FROM bot_settings
+					WHERE setting_key = 'torn-api-credential'
+						AND scope LIKE 'user:%'
+						AND length(scope) > 5
+					ON CONFLICT (discord_id) DO NOTHING;
+
+					IF NOT EXISTS (
+						SELECT 1
+						FROM bot_settings
+						WHERE setting_key <> 'torn-api-credential'
+							OR scope NOT LIKE 'user:%'
+							OR length(scope) <= 5
+					) THEN
+						DROP TABLE bot_settings;
+					END IF;
+				END IF;
+			END
+			$$;
+		`);
+
+		const result = await this.pool.query<{ legacy_settings_remain: boolean }>(
+			"SELECT to_regclass('bot_settings') IS NOT NULL AS legacy_settings_remain"
+		);
+		return result.rows[0]?.legacy_settings_remain ?? false;
 	}
 
-	public async get(scope: string, key: string): Promise<JsonValue | undefined> {
-		const result = await this.pool.query<SettingRow>('SELECT value FROM bot_settings WHERE scope = $1 AND setting_key = $2', [scope, key]);
-		return result.rows[0]?.value;
+	public async getTornApi(discordId: string): Promise<JsonValue | undefined> {
+		const result = await this.pool.query<VerifiedUserRow>('SELECT torn_api FROM verified_users WHERE discord_id = $1', [discordId]);
+		return result.rows[0]?.torn_api;
 	}
 
-	public async set(scope: string, key: string, value: JsonValue): Promise<void> {
-		const serialized = JSON.stringify(value);
+	public async setTornApi(discordId: string, tornApi: JsonValue): Promise<void> {
+		const serialized = JSON.stringify(tornApi);
 		if (serialized === undefined) {
-			throw new TypeError('Setting value must be JSON serializable.');
+			throw new TypeError('Torn credential must be JSON serializable.');
 		}
 
 		await this.pool.query(
-			`INSERT INTO bot_settings (scope, setting_key, value)
-			VALUES ($1, $2, $3::jsonb)
-			ON CONFLICT (scope, setting_key)
-			DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-			[scope, key, serialized]
+			`INSERT INTO verified_users (discord_id, torn_api)
+			VALUES ($1, $2::jsonb)
+			ON CONFLICT (discord_id)
+			DO UPDATE SET torn_api = EXCLUDED.torn_api, updated_at = NOW()`,
+			[discordId, serialized]
 		);
 	}
 
-	public async delete(scope: string, key: string): Promise<boolean> {
-		const result = await this.pool.query('DELETE FROM bot_settings WHERE scope = $1 AND setting_key = $2', [scope, key]);
+	public async deleteTornApi(discordId: string): Promise<boolean> {
+		const result = await this.pool.query('DELETE FROM verified_users WHERE discord_id = $1', [discordId]);
 		return (result.rowCount ?? 0) > 0;
 	}
 
