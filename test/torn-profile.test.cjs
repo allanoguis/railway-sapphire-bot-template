@@ -82,6 +82,14 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 						player_id: 123,
 						name: 'Profile Owner',
 						level: 50,
+						faction: {
+							id: 57494,
+							name: 'The Retreat',
+							tag: 'RT',
+							tag_image: '57494-55833.png',
+							position: 'Intelligence Officer',
+							days_in_faction: 75
+						},
 						energy: { current: 100, maximum: 100 },
 						battlestats: { strength: 10, defense: 20, speed: 30, dexterity: 40, total: 100 }
 					})
@@ -114,6 +122,19 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 		const result = await getTornProfile(storage, discordUserId);
 		assert.equal(result.isLinkedProfile, true);
 		assert.equal(result.profile.name, 'Profile Owner');
+		assert.deepEqual(result.profile.faction, {
+			id: 57494,
+			name: 'The Retreat',
+			tag: 'RT',
+			tag_image: '57494-55833.png',
+			position: 'Intelligence Officer',
+			days_in_faction: 75
+		});
+		const profileEmbed = buildTornProfileEmbed(result.profile, result.isLinkedProfile).toJSON();
+		assert.equal(
+			profileEmbed.fields.find((field) => field.name === 'Faction').value,
+			'[RT] The Retreat\nPosition: Intelligence Officer\nDays in faction: 75'
+		);
 
 		const ownProfileById = await getTornProfile(storage, discordUserId, 123);
 		assert.equal(ownProfileById.isLinkedProfile, true);

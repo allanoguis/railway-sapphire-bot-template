@@ -14,9 +14,12 @@ export interface TornProfile {
 	name?: string;
 	level?: number;
 	faction?: {
-		faction_id?: number;
+		id?: number;
 		name?: string;
 		tag?: string;
+		tag_image?: string;
+		position?: string;
+		days_in_faction?: number;
 	};
 	status?: {
 		description?: string;

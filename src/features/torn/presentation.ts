@@ -46,9 +46,19 @@ function getBattleStats(profile: TornProfile): NonNullable<TornProfile['battlest
 	return undefined;
 }
 
+function buildFaction(profile: TornProfile): string {
+	const { faction } = profile;
+	if (!faction?.name) return 'None';
+
+	const lines = [`${faction.tag ? `[${faction.tag}] ` : ''}${faction.name}`];
+	if (faction.position) lines.push(`Position: ${faction.position}`);
+	if (typeof faction.days_in_faction === 'number') lines.push(`Days in faction: ${displayNumber(faction.days_in_faction)}`);
+	return lines.join('\n');
+}
+
 export function buildTornProfileEmbed(profile: TornProfile, isLinkedProfile: boolean): EmbedBuilder {
 	const name = profile.name ?? 'Torn player';
-	const faction = profile.faction?.name ? `${profile.faction.tag ? `[${profile.faction.tag}] ` : ''}${profile.faction.name}` : 'None';
+	const faction = buildFaction(profile);
 	const linkedBarLines = [
 		displayBar('Energy', profile.energy),
 		displayBar('Nerve', profile.nerve),
