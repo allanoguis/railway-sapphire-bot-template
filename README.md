@@ -28,8 +28,7 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 
 - Copy `.env.example` to `.env` and set `DISCORD_TOKEN` to your Discord bot token.
 - Optionally adjust `COMMAND_COOLDOWN_DELAY_MS` and `COMMAND_COOLDOWN_LIMIT` to change the default per-user command cooldown.
-- For public Torn player lookups, optionally set `TORN_API_KEY` to a bot-owned Torn API key.
-- To enable private account pairing, configure `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Generate the latter with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and keep it backed up securely; losing it makes stored Torn keys unusable.
+- To enable private Torn account pairing and API requests, configure `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Generate the latter with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and keep it backed up securely; losing it makes stored Torn keys unusable.
 - These Torn variables are configured once by the bot operator in the bot host's environment; individual Discord users do not need database credentials or an encryption key.
 
 ## 🚆 Railway deployment
@@ -83,8 +82,8 @@ Commands should validate interaction input and call a feature service rather tha
 ## 🎮 Torn individual profiles
 
 - `/pair` displays the API-key use and storage disclosure, then opens a private modal. Only a Torn API key is accepted; never provide a Torn password. `/verify` revalidates the paired key with Torn and privately confirms whether it is still valid. `/unpair` deletes the encrypted key.
-- `/torn profile` with no player ID displays the caller's paired profile. `/torn profile player-id:<id>` looks up public profile data using `TORN_API_KEY`; private bars are shown only for the paired account.
-- User keys are encrypted with AES-256-GCM in PostgreSQL and require both `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. The key is used only for the paired user's profile and `/verify`. Keep the encryption key backed up; changing or losing it prevents decrypting paired API keys.
+- `/torn profile` uses the caller's own paired Torn API key for every request. With no player ID it displays the caller's own profile; with `player-id:<id>` it requests that player's profile using the caller's key. Torn may restrict the returned data based on that key's access level.
+- Each user's key is encrypted with AES-256-GCM in PostgreSQL and is used for `/verify` and that user's profile requests. Pairing requires both `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Keep the encryption key backed up; changing or losing it prevents decrypting paired API keys.
 - The bot requests only the Torn API `basic`, `profile`, `bars`, `cooldowns`, and `battlestats` selections as needed. Torn may reject unavailable selections based on the API key's access level. Responses are private to the requesting Discord user.
 - Faction management is intentionally not included in this individual-profile module.
 

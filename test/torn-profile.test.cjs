@@ -18,7 +18,7 @@ function createStorage() {
 	};
 }
 
-test('links Torn keys encrypted to the Discord user and fetches that user profile without an ID', async () => {
+test("pairs Torn keys to the Discord user and uses that user's key for profile requests", async () => {
 	const originalFetch = global.fetch;
 	const previousEncryptionKey = process.env.TORN_ENCRYPTION_KEY;
 	const apiKey = 'a'.repeat(16);
@@ -29,21 +29,30 @@ test('links Torn keys encrypted to the Discord user and fetches that user profil
 	try {
 		global.fetch = async (input) => {
 			const url = new URL(input);
-			if (url.searchParams.get('selections') === 'basic') {
+			if (url.pathname === '/user/' && url.searchParams.get('selections') === 'basic') {
 				assert.equal(url.searchParams.get('key'), apiKey);
 				return { ok: true, json: async () => ({ player_id: 123, name: 'Profile Owner' }) };
 			}
 
-			assert.equal(url.pathname, '/user/');
 			assert.equal(url.searchParams.get('key'), apiKey);
+			if (url.pathname === '/user/') {
+				assert.equal(url.searchParams.get('selections'), 'basic,profile,bars,cooldowns,battlestats');
+				return {
+					ok: true,
+					json: async () => ({
+						player_id: 123,
+						name: 'Profile Owner',
+						level: 50,
+						energy: { current: 100, maximum: 100 }
+					})
+				};
+			}
+
+			assert.equal(url.pathname, '/user/456');
+			assert.equal(url.searchParams.get('selections'), 'basic,profile,battlestats');
 			return {
 				ok: true,
-				json: async () => ({
-					player_id: 123,
-					name: 'Profile Owner',
-					level: 50,
-					energy: { current: 100, maximum: 100 }
-				})
+				json: async () => ({ player_id: 456, name: 'Other Profile' })
 			};
 		};
 
@@ -57,6 +66,10 @@ test('links Torn keys encrypted to the Discord user and fetches that user profil
 		assert.equal(result.isLinkedProfile, true);
 		assert.equal(result.profile.name, 'Profile Owner');
 
+		const otherProfile = await getTornProfile(storage, discordUserId, 456);
+		assert.equal(otherProfile.isLinkedProfile, false);
+		assert.equal(otherProfile.profile.name, 'Other Profile');
+
 		credential.authTag = Buffer.alloc(16).toString('base64');
 		await assert.rejects(getTornProfile(storage, discordUserId), /could not be decrypted/);
 	} finally {
@@ -66,26 +79,14 @@ test('links Torn keys encrypted to the Discord user and fetches that user profil
 	}
 });
 
-test('allows public profile lookup without database configuration', async () => {
-	const originalFetch = global.fetch;
+test('requires a paired user key for player ID profile requests', async () => {
 	const previousApiKey = process.env.TORN_API_KEY;
-	const apiKey = 'b'.repeat(16);
-	process.env.TORN_API_KEY = apiKey;
+	process.env.TORN_API_KEY = 'b'.repeat(16);
 
 	try {
-		global.fetch = async (input) => {
-			const url = new URL(input);
-			assert.equal(url.pathname, '/user/123');
-			assert.equal(url.searchParams.get('key'), apiKey);
-			return { ok: true, json: async () => ({ player_id: 123, name: 'Public Profile' }) };
-		};
-
-		const result = await getTornProfile(null, 'discord-user-1', 123);
-		assert.equal(result.isLinkedProfile, false);
-		assert.equal(result.profile.name, 'Public Profile');
-		await assert.rejects(getTornProfile(null, 'discord-user-1'), /bot administrator/);
+		await assert.rejects(getTornProfile(createStorage(), 'discord-user-1', 123), /Pair your Torn API key/);
+		await assert.rejects(getTornProfile(null, 'discord-user-1', 123), /bot administrator/);
 	} finally {
-		global.fetch = originalFetch;
 		if (previousApiKey === undefined) delete process.env.TORN_API_KEY;
 		else process.env.TORN_API_KEY = previousApiKey;
 	}

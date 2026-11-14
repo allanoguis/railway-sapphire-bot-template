@@ -16,7 +16,7 @@ export class TornCommand extends Command {
 				.addSubcommand((subcommand) =>
 					subcommand
 						.setName('profile')
-						.setDescription('View your paired profile or a public player profile.')
+						.setDescription('View your profile or another player with your paired Torn API key.')
 						.addStringOption((option) =>
 							option.setName('player-id').setDescription('Torn player ID; omit to view your paired profile.').setRequired(false)
 						)

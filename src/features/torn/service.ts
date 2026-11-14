@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import type { JsonValue, PostgresStorage } from '../../lib/postgres-storage';
-import { getTornApiKey, getTornEncryptionKey } from '../../config';
+import { getTornEncryptionKey } from '../../config';
 
 type TornStorage = Pick<PostgresStorage, 'get' | 'set' | 'delete'>;
 
@@ -241,48 +241,27 @@ export async function getTornProfile(
 	discordUserId: string,
 	playerId?: number
 ): Promise<{ profile: TornProfile; isLinkedProfile: boolean }> {
-	const credential = storage === null ? undefined : await loadCredential(storage, discordUserId);
-
-	if (playerId === undefined) {
-		if (storage === null) {
-			throw new Error('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
-		}
-		if (!credential) {
-			throw new Error('Pair your Torn API key with `/pair` to view your own profile.');
-		}
-		const encryptionKey = getTornEncryptionKey(process.env);
-		if (!encryptionKey) {
-			throw new Error('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
-		}
-		return {
-			profile: await requestProfile(
-				decryptApiKey(credential, encryptionKey, discordUserId),
-				undefined,
-				'basic,profile,bars,cooldowns,battlestats'
-			),
-			isLinkedProfile: true
-		};
+	if (storage === null) {
+		throw new Error('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
 	}
 
-	if (credential?.playerId === playerId) {
-		const encryptionKey = getTornEncryptionKey(process.env);
-		if (!encryptionKey) {
-			throw new Error('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
-		}
-		return {
-			profile: await requestProfile(
-				decryptApiKey(credential, encryptionKey, discordUserId),
-				undefined,
-				'basic,profile,bars,cooldowns,battlestats'
-			),
-			isLinkedProfile: true
-		};
+	const credential = await loadCredential(storage, discordUserId);
+	if (!credential) {
+		throw new Error('Pair your Torn API key with `/pair` to request Torn profiles.');
 	}
 
-	const apiKey = getTornApiKey(process.env);
-	if (!apiKey) {
-		throw new Error('Public Torn player lookups are not configured by the bot administrator. Please contact them for help.');
+	const encryptionKey = getTornEncryptionKey(process.env);
+	if (!encryptionKey) {
+		throw new Error('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
 	}
 
-	return { profile: await requestProfile(apiKey, playerId), isLinkedProfile: false };
+	const apiKey = decryptApiKey(credential, encryptionKey, discordUserId);
+	if (playerId !== undefined && credential.playerId !== playerId) {
+		return { profile: await requestProfile(apiKey, playerId), isLinkedProfile: false };
+	}
+
+	return {
+		profile: await requestProfile(apiKey, undefined, 'basic,profile,bars,cooldowns,battlestats'),
+		isLinkedProfile: true
+	};
 }
