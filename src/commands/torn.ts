@@ -5,7 +5,7 @@ import { getTornProfile } from '../features/torn/service';
 
 @ApplyOptions<Command.Options>({
 	name: 'torn',
-	description: 'View Torn player profiles or remove your paired account.'
+	description: 'View Torn player profiles using your paired Torn API key.',
 })
 export class TornCommand extends Command {
 	public override registerApplicationCommands(registry: ChatInputCommand.Registry) {
