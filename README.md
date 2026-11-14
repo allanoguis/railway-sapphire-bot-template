@@ -85,7 +85,7 @@ Commands should validate interaction input and call a feature service rather tha
 - Pairing and verification call Torn API v1 with `GET https://api.torn.com/user/?selections=basic&key=...`. `/verify` loads and decrypts only the invoking Discord user's stored key, then confirms Torn returns the same player ID that was paired.
 - `/torn profile` uses the caller's own paired Torn API key for every request. With no player ID it displays the caller's own profile; with `player-id:<id>` it requests that player's profile using the caller's key. Torn may restrict the returned data based on that key's access level.
 - Each user's key is encrypted with AES-256-GCM in PostgreSQL and is used for `/verify` and that user's profile requests. Pairing requires both `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Keep the encryption key backed up; changing or losing it prevents decrypting paired API keys.
-- The bot requests only the Torn API `basic`, `profile`, `bars`, `cooldowns`, and `battlestats` selections as needed. Torn may reject unavailable selections based on the API key's access level. Responses are private to the requesting Discord user.
+- The bot requests only the Torn API `basic`, `profile`, `bars`, `cooldowns`, and `battlestats` selections as needed. Battle stats are requested and shown only for the paired user's own profile; when another player's ID is supplied, the bot requests only `basic` and `profile` and omits the battle-stats section. Torn may reject other unavailable selections based on the API key's access level. Responses are private to the requesting Discord user.
 - Faction management is intentionally not included in this individual-profile module.
 
 ## 🩺 Health checks

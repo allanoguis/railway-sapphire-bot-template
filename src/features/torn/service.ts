@@ -175,6 +175,14 @@ async function requestProfile(apiKey: string, playerId?: number, selections = 'b
 	return payload as TornProfile;
 }
 
+function withoutBattleStats(profile: TornProfile): TornProfile {
+	const publicProfile = { ...profile };
+	for (const key of ['battlestats', 'strength', 'defense', 'speed', 'dexterity', 'total'] as const) {
+		delete publicProfile[key];
+	}
+	return publicProfile;
+}
+
 async function loadCredential(storage: TornStorage, discordUserId: string): Promise<StoredCredential | undefined> {
 	const value = await storage.getTornApi(discordUserId);
 	return readStoredCredential(value);
@@ -253,7 +261,8 @@ export async function getTornProfile(
 
 	const apiKey = decryptApiKey(credential, encryptionKey, discordUserId);
 	if (playerId !== undefined && credential.playerId !== playerId) {
-		return { profile: await requestProfile(apiKey, playerId), isLinkedProfile: false };
+		const profile = await requestProfile(apiKey, playerId, 'basic,profile');
+		return { profile: withoutBattleStats(profile), isLinkedProfile: false };
 	}
 
 	return {

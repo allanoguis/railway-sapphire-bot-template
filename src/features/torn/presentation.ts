@@ -59,7 +59,7 @@ export function buildTornProfileEmbed(profile: TornProfile, isLinkedProfile: boo
 		)}`
 	];
 	const bars = isLinkedProfile ? linkedBarLines.join('\n') : 'Available only for a paired account.';
-	const stats = getBattleStats(profile);
+	const stats = isLinkedProfile ? getBattleStats(profile) : undefined;
 	const battleStats = stats
 		? `Strength: ${displayNumber(stats.strength)}
 Defense: ${displayNumber(stats.defense)}
@@ -78,7 +78,7 @@ Total: ${displayNumber(stats.total)}`
 			{ name: 'Status', value: buildStatus(profile), inline: false },
 			{ name: 'Last Action', value: buildLastAction(profile), inline: false },
 			{ name: 'Bars & Cooldowns', value: bars, inline: false },
-			{ name: 'Battle Stats', value: battleStats, inline: false }
+			...(isLinkedProfile ? [{ name: 'Battle Stats', value: battleStats, inline: false }] : [])
 		)
 		.setFooter({ text: isLinkedProfile ? 'Private profile shown only to you' : 'Public profile data' })
 		.setTimestamp();
