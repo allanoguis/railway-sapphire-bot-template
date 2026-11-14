@@ -75,24 +75,39 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 				assert.equal(url.searchParams.has('id'), false);
 				return { ok: true, json: async () => ({ profile: { id: 123, name: 'Profile Owner' } }) };
 			}
-			if (url.pathname === '/v2/user/profile' && url.searchParams.get('id') === '456') {
+			if (url.pathname === '/v2/user/faction' && url.searchParams.get('id') === '456') {
 				return {
 					ok: true,
 					json: async () => ({
-						profile: {
-							player_id: 456,
-							name: 'Other Profile',
-							faction: {
-								id: 57494,
-								name: 'The Retreat',
-								tag: 'RT',
-								tag_image: '57494-55833.png',
-								position: 'Intelligence Officer',
-								days_in_faction: 75
-							}
+						faction: {
+							id: 57494,
+							name: 'The Retreat',
+							tag: 'RT',
+							tag_image: '57494-55833.png',
+							position: 'Intelligence Officer',
+							days_in_faction: 75
 						}
 					})
 				};
+			}
+			if (url.pathname === '/v2/user/faction') {
+				assert.equal(url.searchParams.has('id'), false);
+				return {
+					ok: true,
+					json: async () => ({
+						faction: {
+							id: 57494,
+							name: 'The Retreat',
+							tag: 'RT',
+							tag_image: '57494-55833.png',
+							position: 'Intelligence Officer',
+							days_in_faction: 75
+						}
+					})
+				};
+			}
+			if (url.pathname === '/v2/user/profile' && url.searchParams.get('id') === '456') {
+				return { ok: true, json: async () => ({ profile: { player_id: 456, name: 'Other Profile' } }) };
 			}
 			if (url.pathname === '/v2/user/profile') {
 				assert.equal(url.searchParams.has('id'), false);
@@ -102,15 +117,7 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 						profile: {
 							player_id: 123,
 							name: 'Profile Owner',
-							level: 50,
-							faction: {
-								faction_id: 57494,
-								faction_name: 'The Retreat',
-								faction_tag: 'RT',
-								faction_tag_image: '57494-55833.png',
-								position: 'Intelligence Officer',
-								days_in_faction: 75
-							}
+							level: 50
 						}
 					})
 				};

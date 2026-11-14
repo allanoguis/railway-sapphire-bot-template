@@ -172,7 +172,7 @@ function normalizeProfile(payload: Record<string, unknown>): TornProfile {
 	return profile as TornProfile;
 }
 
-type TornUserSelection = 'basic' | 'profile' | 'bars' | 'cooldowns' | 'battlestats';
+type TornUserSelection = 'basic' | 'profile' | 'faction' | 'bars' | 'cooldowns' | 'battlestats';
 
 async function requestSelection(apiKey: string, selection: TornUserSelection, playerId?: number): Promise<Record<string, unknown>> {
 	const url = new URL(`https://api.torn.com/v2/user/${selection}`);
@@ -230,6 +230,11 @@ async function requestProfile(apiKey: string, playerId?: number): Promise<TornPr
 		throw new TornApiError('Torn did not return a player profile for this API key.');
 	}
 	return profile;
+}
+
+async function requestFaction(apiKey: string, playerId?: number): Promise<TornProfile['faction']> {
+	const payload = await requestSelection(apiKey, 'faction', playerId);
+	return normalizeFaction(readSelection(payload, 'faction'));
 }
 
 function readBar(value: unknown): TornBar | undefined {
@@ -343,12 +348,13 @@ export async function getTornProfile(
 
 	const apiKey = decryptApiKey(credential, encryptionKey, discordUserId);
 	if (playerId !== undefined && credential.playerId !== playerId) {
-		const profile = await requestProfile(apiKey, playerId);
-		return { profile: withoutBattleStats(profile), isLinkedProfile: false };
+		const [profile, faction] = await Promise.all([requestProfile(apiKey, playerId), requestFaction(apiKey, playerId)]);
+		return { profile: withoutBattleStats({ ...profile, faction }), isLinkedProfile: false };
 	}
 
-	const [profile, barsPayload, cooldownsPayload, battleStatsPayload] = await Promise.all([
+	const [profile, faction, barsPayload, cooldownsPayload, battleStatsPayload] = await Promise.all([
 		requestProfile(apiKey),
+		requestFaction(apiKey),
 		requestSelection(apiKey, 'bars'),
 		requestSelection(apiKey, 'cooldowns'),
 		requestSelection(apiKey, 'battlestats')
@@ -360,6 +366,7 @@ export async function getTornProfile(
 	return {
 		profile: {
 			...profile,
+			faction,
 			energy: readBar(bars.energy),
 			nerve: readBar(bars.nerve),
 			happy: readBar(bars.happy),
