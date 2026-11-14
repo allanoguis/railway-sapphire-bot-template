@@ -68,57 +68,84 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 		global.fetch = async (input) => {
 			const url = new URL(input);
 			assert.equal(url.origin, 'https://api.torn.com');
-			if (url.pathname === '/user/' && url.searchParams.get('selections') === 'basic') {
-				assert.equal(url.searchParams.get('key'), apiKey);
-				return { ok: true, json: async () => ({ player_id: 123, name: 'Profile Owner' }) };
-			}
-
 			assert.equal(url.searchParams.get('key'), apiKey);
-			if (url.pathname === '/user/') {
-				assert.equal(url.searchParams.get('selections'), 'basic,profile,bars,cooldowns,battlestats');
+			assert.equal(url.searchParams.has('selections'), false);
+
+			if (url.pathname === '/v2/user/basic') {
+				assert.equal(url.searchParams.has('id'), false);
+				return { ok: true, json: async () => ({ profile: { id: 123, name: 'Profile Owner' } }) };
+			}
+			if (url.pathname === '/v2/user/profile' && url.searchParams.get('id') === '456') {
 				return {
 					ok: true,
 					json: async () => ({
-						player_id: 123,
-						name: 'Profile Owner',
-						level: 50,
-						faction: {
-							id: 57494,
-							name: 'The Retreat',
-							tag: 'RT',
-							tag_image: '57494-55833.png',
-							position: 'Intelligence Officer',
-							days_in_faction: 75
-						},
-						energy: { current: 100, maximum: 100 },
-						battlestats: { strength: 10, defense: 20, speed: 30, dexterity: 40, total: 100 }
+						profile: {
+							player_id: 456,
+							name: 'Other Profile',
+							faction: {
+								id: 57494,
+								name: 'The Retreat',
+								tag: 'RT',
+								tag_image: '57494-55833.png',
+								position: 'Intelligence Officer',
+								days_in_faction: 75
+							}
+						}
 					})
 				};
 			}
-
-			assert.equal(url.pathname, '/user/456');
-			assert.equal(url.searchParams.get('selections'), 'basic,profile');
-			return {
-				ok: true,
-				json: async () => ({
-					player_id: 456,
-					name: 'Other Profile',
-					faction: {
-						id: 57494,
-						name: 'The Retreat',
-						tag: 'RT',
-						tag_image: '57494-55833.png',
-						position: 'Intelligence Officer',
-						days_in_faction: 75
-					},
-					battlestats: { strength: 10, defense: 20, speed: 30, dexterity: 40, total: 100 },
-					strength: 10,
-					defense: 20,
-					speed: 30,
-					dexterity: 40,
-					total: 100
-				})
-			};
+			if (url.pathname === '/v2/user/profile') {
+				assert.equal(url.searchParams.has('id'), false);
+				return {
+					ok: true,
+					json: async () => ({
+						profile: {
+							player_id: 123,
+							name: 'Profile Owner',
+							level: 50,
+							faction: {
+								faction_id: 57494,
+								faction_name: 'The Retreat',
+								faction_tag: 'RT',
+								faction_tag_image: '57494-55833.png',
+								position: 'Intelligence Officer',
+								days_in_faction: 75
+							}
+						}
+					})
+				};
+			}
+			if (url.pathname === '/v2/user/bars') {
+				return {
+					ok: true,
+					json: async () => ({
+						bars: {
+							energy: { current: 100, maximum: 100 },
+							nerve: { current: 50, maximum: 50 },
+							happy: { current: 500, maximum: 500 },
+							life: { current: 1000, maximum: 1000 }
+						}
+					})
+				};
+			}
+			if (url.pathname === '/v2/user/cooldowns') {
+				return { ok: true, json: async () => ({ cooldowns: { drug: 0, medical: 0, booster: 0 } }) };
+			}
+			if (url.pathname === '/v2/user/battlestats') {
+				return {
+					ok: true,
+					json: async () => ({
+						battlestats: {
+							strength: { value: 10, modifier: 0 },
+							defense: { value: 20, modifier: 0 },
+							speed: { value: 30, modifier: 0 },
+							dexterity: { value: 40, modifier: 0 },
+							total: 100
+						}
+					})
+				};
+			}
+			assert.fail(`Unexpected Torn API request: ${url.pathname}`);
 		};
 
 		assert.deepEqual(await pairTornAccount(storage, discordUserId, apiKey), { playerId: 123, name: 'Profile Owner' });
@@ -130,6 +157,9 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 		const result = await getTornProfile(storage, discordUserId);
 		assert.equal(result.isLinkedProfile, true);
 		assert.equal(result.profile.name, 'Profile Owner');
+		assert.equal(result.profile.energy.current, 100);
+		assert.equal(result.profile.cooldowns.drug, 0);
+		assert.equal(result.profile.battlestats.strength, 10);
 		assert.deepEqual(result.profile.faction, {
 			id: 57494,
 			name: 'The Retreat',
@@ -226,13 +256,14 @@ test('verify revalidates a paired Torn key and reports when no key is paired', a
 	try {
 		global.fetch = async (input) => {
 			const url = new URL(input);
-			assert.equal(url.searchParams.get('selections'), 'basic');
+			assert.equal(url.pathname, '/v2/user/basic');
+			assert.equal(url.searchParams.has('selections'), false);
 			assert.equal(url.searchParams.get('key'), apiKey);
 			requestCount += 1;
 			if (rejectNextRequest) {
 				return { ok: true, json: async () => ({ error: { code: 1 } }) };
 			}
-			return { ok: true, json: async () => ({ player_id: 456, name: 'Paired Profile' }) };
+			return { ok: true, json: async () => ({ profile: { id: 456, name: 'Paired Profile' } }) };
 		};
 
 		assert.equal(await verifyTornAccount(storage, discordUserId), undefined);
