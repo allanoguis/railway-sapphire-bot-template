@@ -1,5 +1,6 @@
 {
 	"name": "token-discord-bot-template",
+	"packageManager": "pnpm@7.33.7",
 	"main": "dist/index.js",
 	"dependencies": {
 		"@sapphire/framework": "^5.5.1",

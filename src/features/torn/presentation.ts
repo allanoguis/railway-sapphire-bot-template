@@ -58,7 +58,7 @@ export function buildTornProfileEmbed(profile: TornProfile, isLinkedProfile: boo
 			profile.cooldowns?.booster
 		)}`
 	];
-	const bars = isLinkedProfile ? linkedBarLines.join('\n') : 'Available only for a linked account.';
+	const bars = isLinkedProfile ? linkedBarLines.join('\n') : 'Available only for a paired account.';
 	const stats = getBattleStats(profile);
 	const battleStats = stats
 		? `Strength: ${displayNumber(stats.strength)}

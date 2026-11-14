@@ -21,15 +21,26 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 - `/help` command discovery
 - `/about` runtime details
 - `/debug` to enable or disable the construction status
+- `/pair` and `/verify` for Torn account pairing and API-key verification
 - `/torn profile` for individual Torn profile information
 
 ## ⚙️ Configuration
 
 - Copy `.env.example` to `.env` and set `DISCORD_TOKEN` to your Discord bot token.
 - Optionally adjust `COMMAND_COOLDOWN_DELAY_MS` and `COMMAND_COOLDOWN_LIMIT` to change the default per-user command cooldown.
-- For Railway, add `DISCORD_TOKEN` to the service's Variables; do not commit your `.env` file.
 - For public Torn player lookups, optionally set `TORN_API_KEY` to a bot-owned Torn API key.
-- To enable private account linking, configure `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Generate the latter with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and keep it backed up securely; losing it makes stored Torn keys unusable.
+- To enable private account pairing, configure `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Generate the latter with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and keep it backed up securely; losing it makes stored Torn keys unusable.
+- These Torn variables are configured once by the bot operator in the bot host's environment; individual Discord users do not need database credentials or an encryption key.
+
+## 🚆 Railway deployment
+
+- Keep the bot and PostgreSQL services in the same Railway project **and environment** so the bot can use Railway private networking.
+- In the bot service's Variables, set `DISCORD_TOKEN` and set `DATABASE_URL` to a Railway service reference such as `${{Postgres.DATABASE_URL}}` (replace `Postgres` with the exact database service name). The bot only needs `DATABASE_URL`; do not copy the database's individual `PG*` or `POSTGRES_*` variables.
+- Use `pnpm install --frozen-lockfile && pnpm build` as the build command and `pnpm start` as the start command. The package pins pnpm to match the existing lockfile.
+- Railway supplies `PORT`; the health server listens on it. Set the deployment health check path to `/readyz`.
+- On its first successful startup, the bot creates the minimal `bot_settings` table automatically. No manual schema setup or seed data is needed. The database user must have permission to create tables in the target schema. Check the deployment logs for `PostgreSQL storage initialized` and `Ready as ...`.
+- The Postgres internal hostname is only reachable inside the Railway environment. A local connection using that URL will fail to resolve; do not enable a public TCP proxy just for bot-to-database traffic.
+- Keep appropriate PostgreSQL backups enabled. Each bot process uses a PostgreSQL connection pool (up to 10 connections by default), so account for all replicas when scaling.
 
 ## 🔐 Command permissions
 
@@ -71,9 +82,9 @@ Commands should validate interaction input and call a feature service rather tha
 
 ## 🎮 Torn individual profiles
 
-- `/torn profile` with no player ID displays the caller's linked profile. `/torn profile player-id:<id>` looks up public profile data using `TORN_API_KEY`; private bars are shown only for the linked account.
-- `/torn link` first displays the API-key use and storage disclosure, then opens a private modal. Only a Torn API key is accepted; never provide a Torn password. `/torn unlink` deletes the encrypted key.
-- User keys are encrypted with AES-256-GCM in PostgreSQL and require both `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. The key is used only for the linked user's profile. Keep the encryption key backed up; changing or losing it prevents decrypting linked API keys.
+- `/pair` displays the API-key use and storage disclosure, then opens a private modal. Only a Torn API key is accepted; never provide a Torn password. `/verify` revalidates the paired key with Torn and privately confirms whether it is still valid. `/torn unlink` deletes the encrypted key.
+- `/torn profile` with no player ID displays the caller's paired profile. `/torn profile player-id:<id>` looks up public profile data using `TORN_API_KEY`; private bars are shown only for the paired account.
+- User keys are encrypted with AES-256-GCM in PostgreSQL and require both `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. The key is used only for the paired user's profile and `/verify`. Keep the encryption key backed up; changing or losing it prevents decrypting paired API keys.
 - The bot requests only the Torn API `basic`, `profile`, `bars`, `cooldowns`, and `battlestats` selections as needed. Torn may reject unavailable selections based on the API key's access level. Responses are private to the requesting Discord user.
 - Faction management is intentionally not included in this individual-profile module.
 

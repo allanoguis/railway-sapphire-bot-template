@@ -71,7 +71,7 @@ typings/
 # dotenv environment variables file
 .env
 .env.test
-.env.example
+!.env.example
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -83,6 +83,9 @@ typings/
 .nuxt
 dist
 /test/
+!/test/
+/test/*
+!/test/torn-profile.test.cjs
 
 # Gatsby files
 .cache/
@@ -104,4 +107,3 @@ dist
 
 # TernJS port file
 .tern-port
-test/command-info.test.cjs
