@@ -103,6 +103,14 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 				json: async () => ({
 					player_id: 456,
 					name: 'Other Profile',
+					faction: {
+						id: 57494,
+						name: 'The Retreat',
+						tag: 'RT',
+						tag_image: '57494-55833.png',
+						position: 'Intelligence Officer',
+						days_in_faction: 75
+					},
 					battlestats: { strength: 10, defense: 20, speed: 30, dexterity: 40, total: 100 },
 					strength: 10,
 					defense: 20,
@@ -133,7 +141,7 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 		const profileEmbed = buildTornProfileEmbed(result.profile, result.isLinkedProfile).toJSON();
 		assert.equal(
 			profileEmbed.fields.find((field) => field.name === 'Faction').value,
-			'[RT] The Retreat\nPosition: Intelligence Officer\nDays in faction: 75'
+			'[RT] The Retreat\nID: 57,494\nTag image: 57494-55833.png\nPosition: Intelligence Officer\nDays in faction: 75'
 		);
 
 		const ownProfileById = await getTornProfile(storage, discordUserId, 123);
@@ -149,18 +157,16 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 		const otherProfile = await getTornProfile(storage, discordUserId, 456);
 		assert.equal(otherProfile.isLinkedProfile, false);
 		assert.equal(otherProfile.profile.name, 'Other Profile');
+		assert.deepEqual(otherProfile.profile.faction, result.profile.faction);
 		assert.equal(otherProfile.profile.battlestats, undefined);
 		assert.equal(otherProfile.profile.strength, undefined);
-		const otherProfileEmbed = buildTornProfileEmbed(
-			{
-				player_id: 456,
-				name: 'Other Profile',
-				battlestats: { strength: 10, defense: 20, speed: 30, dexterity: 40, total: 100 }
-			},
-			false
+		const otherProfileEmbed = buildTornProfileEmbed(otherProfile.profile, otherProfile.isLinkedProfile).toJSON();
+		assert.equal(
+			otherProfileEmbed.fields.find((field) => field.name === 'Faction').value,
+			'[RT] The Retreat\nID: 57,494\nTag image: 57494-55833.png\nPosition: Intelligence Officer\nDays in faction: 75'
 		);
 		assert.equal(
-			otherProfileEmbed.toJSON().fields.some((field) => field.name === 'Battle Stats'),
+			otherProfileEmbed.fields.some((field) => field.name === 'Battle Stats'),
 			false
 		);
 

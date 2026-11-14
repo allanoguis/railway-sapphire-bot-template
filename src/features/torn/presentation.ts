@@ -48,12 +48,15 @@ function getBattleStats(profile: TornProfile): NonNullable<TornProfile['battlest
 
 function buildFaction(profile: TornProfile): string {
 	const { faction } = profile;
-	if (!faction?.name) return 'None';
+	if (!faction) return 'None';
 
-	const lines = [`${faction.tag ? `[${faction.tag}] ` : ''}${faction.name}`];
+	const lines: string[] = [];
+	if (faction.name) lines.push(`${faction.tag ? `[${faction.tag}] ` : ''}${faction.name}`);
+	if (typeof faction.id === 'number') lines.push(`ID: ${displayNumber(faction.id)}`);
+	if (faction.tag_image) lines.push(`Tag image: ${faction.tag_image}`);
 	if (faction.position) lines.push(`Position: ${faction.position}`);
 	if (typeof faction.days_in_faction === 'number') lines.push(`Days in faction: ${displayNumber(faction.days_in_faction)}`);
-	return lines.join('\n');
+	return lines.length > 0 ? lines.join('\n') : 'None';
 }
 
 export function buildTornProfileEmbed(profile: TornProfile, isLinkedProfile: boolean): EmbedBuilder {
