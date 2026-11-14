@@ -171,7 +171,7 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 		const profileEmbed = buildTornProfileEmbed(result.profile, result.isLinkedProfile).toJSON();
 		assert.equal(
 			profileEmbed.fields.find((field) => field.name === 'Faction').value,
-			'[RT] The Retreat\nID: 57,494\nTag image: 57494-55833.png\nPosition: Intelligence Officer\nDays in faction: 75'
+			'Id: 57494\nName: The Retreat\nPosition: Intelligence Officer\nDays in faction: 75'
 		);
 
 		const ownProfileById = await getTornProfile(storage, discordUserId, 123);
@@ -193,7 +193,7 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 		const otherProfileEmbed = buildTornProfileEmbed(otherProfile.profile, otherProfile.isLinkedProfile).toJSON();
 		assert.equal(
 			otherProfileEmbed.fields.find((field) => field.name === 'Faction').value,
-			'[RT] The Retreat\nID: 57,494\nTag image: 57494-55833.png\nPosition: Intelligence Officer\nDays in faction: 75'
+			'Id: 57494\nName: The Retreat\nPosition: Intelligence Officer\nDays in faction: 75'
 		);
 		assert.equal(
 			otherProfileEmbed.fields.some((field) => field.name === 'Battle Stats'),

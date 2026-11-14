@@ -50,13 +50,12 @@ function buildFaction(profile: TornProfile): string {
 	const { faction } = profile;
 	if (!faction) return 'None';
 
-	const lines: string[] = [];
-	if (faction.name) lines.push(`${faction.tag ? `[${faction.tag}] ` : ''}${faction.name}`);
-	if (typeof faction.id === 'number') lines.push(`ID: ${displayNumber(faction.id)}`);
-	if (faction.tag_image) lines.push(`Tag image: ${faction.tag_image}`);
-	if (faction.position) lines.push(`Position: ${faction.position}`);
-	if (typeof faction.days_in_faction === 'number') lines.push(`Days in faction: ${displayNumber(faction.days_in_faction)}`);
-	return lines.length > 0 ? lines.join('\n') : 'None';
+	return [
+		`Id: ${typeof faction.id === 'number' && Number.isFinite(faction.id) ? Math.floor(faction.id) : 'Unavailable'}`,
+		`Name: ${faction.name ?? 'Unavailable'}`,
+		`Position: ${faction.position ?? 'Unavailable'}`,
+		`Days in faction: ${displayNumber(faction.days_in_faction)}`
+	].join('\n');
 }
 
 export function buildTornProfileEmbed(profile: TornProfile, isLinkedProfile: boolean): EmbedBuilder {
