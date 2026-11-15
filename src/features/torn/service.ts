@@ -150,13 +150,25 @@ function normalizeFaction(value: unknown): TornProfile['faction'] | undefined {
 	const tag = typeof value.tag === 'string' ? value.tag : value.faction_tag;
 	const tagImage = typeof value.tag_image === 'string' ? value.tag_image : value.faction_tag_image;
 	const daysInFaction = value.days_in_faction;
+	const { position } = value;
+	const hasFactionText = (text: unknown): text is string =>
+		typeof text === 'string' && text.trim().length > 0 && text.trim().toLowerCase() !== 'none';
+
+	if (
+		!(typeof id === 'number' && Number.isFinite(id) && id > 0) &&
+		![name, tag, tagImage, position].some(hasFactionText) &&
+		!(typeof daysInFaction === 'number' && daysInFaction > 0)
+	) {
+		return undefined;
+	}
+
 	const faction: NonNullable<TornProfile['faction']> = {};
 
-	if (typeof id === 'number') faction.id = id;
-	if (typeof name === 'string') faction.name = name;
-	if (typeof tag === 'string') faction.tag = tag;
-	if (typeof tagImage === 'string') faction.tag_image = tagImage;
-	if (typeof value.position === 'string') faction.position = value.position;
+	if (typeof id === 'number' && Number.isFinite(id) && id > 0) faction.id = id;
+	if (hasFactionText(name)) faction.name = name.trim();
+	if (hasFactionText(tag)) faction.tag = tag.trim();
+	if (hasFactionText(tagImage)) faction.tag_image = tagImage.trim();
+	if (hasFactionText(position)) faction.position = position.trim();
 	if (typeof daysInFaction === 'number') faction.days_in_faction = daysInFaction;
 
 	return faction;
@@ -234,7 +246,10 @@ async function requestProfile(apiKey: string, playerId?: number): Promise<TornPr
 
 async function requestFaction(apiKey: string, playerId?: number): Promise<TornProfile['faction']> {
 	const payload = await requestSelection(apiKey, 'faction', playerId);
-	return normalizeFaction(readSelection(payload, 'faction'));
+	const { faction } = payload;
+	if (faction === undefined || faction === null) return undefined;
+	if (!isRecord(faction)) throw new TornApiError('Torn returned an unexpected response. Please try again later.');
+	return normalizeFaction(faction);
 }
 
 function readBar(value: unknown): TornBar | undefined {

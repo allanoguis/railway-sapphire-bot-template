@@ -90,6 +90,21 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 					})
 				};
 			}
+			if (url.pathname === '/v2/user/faction' && url.searchParams.get('id') === '789') {
+				return {
+					ok: true,
+					json: async () => ({
+						faction: {
+							id: 0,
+							name: 'None',
+							tag: null,
+							tag_image: null,
+							position: 'None',
+							days_in_faction: 0
+						}
+					})
+				};
+			}
 			if (url.pathname === '/v2/user/faction') {
 				assert.equal(url.searchParams.has('id'), false);
 				return {
@@ -108,6 +123,9 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 			}
 			if (url.pathname === '/v2/user/profile' && url.searchParams.get('id') === '456') {
 				return { ok: true, json: async () => ({ profile: { player_id: 456, name: 'Other Profile' } }) };
+			}
+			if (url.pathname === '/v2/user/profile' && url.searchParams.get('id') === '789') {
+				return { ok: true, json: async () => ({ profile: { player_id: 789, name: 'Unaffiliated Profile' } }) };
 			}
 			if (url.pathname === '/v2/user/profile') {
 				assert.equal(url.searchParams.has('id'), false);
@@ -205,6 +223,15 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 		assert.equal(
 			otherProfileEmbed.fields.some((field) => field.name === 'Battle Stats'),
 			false
+		);
+
+		const unaffiliatedProfile = await getTornProfile(storage, discordUserId, 789);
+		assert.equal(unaffiliatedProfile.profile.faction, undefined);
+		assert.equal(
+			buildTornProfileEmbed(unaffiliatedProfile.profile, unaffiliatedProfile.isLinkedProfile)
+				.toJSON()
+				.fields.find((field) => field.name === 'Faction').value,
+			'None'
 		);
 
 		credential.authTag = Buffer.alloc(16).toString('base64');
