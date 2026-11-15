@@ -12,6 +12,16 @@ function displayBar(name: string, value: TornProfile['energy']): string {
 	return `${name}: ${displayNumber(value.current)} / ${displayNumber(value.maximum)}`;
 }
 
+function displayCooldown(value: unknown): string {
+	if (typeof value !== 'number' || !Number.isFinite(value)) return 'Unavailable';
+
+	const totalSeconds = Math.max(0, Math.floor(value));
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+	return `${String(hours).padStart(2, '0')}h:${String(minutes).padStart(2, '0')}m:${String(seconds).padStart(2, '0')}s`;
+}
+
 function buildStatus(profile: TornProfile): string {
 	const parts = [profile.status?.description, profile.status?.details, profile.status?.state].filter(
 		(part): part is string => typeof part === 'string' && part.length > 0
@@ -65,12 +75,15 @@ export function buildTornProfileEmbed(profile: TornProfile, isLinkedProfile: boo
 		displayBar('Energy', profile.energy),
 		displayBar('Nerve', profile.nerve),
 		displayBar('Happy', profile.happy),
-		displayBar('Life', profile.life),
-		`Cooldowns — drug: ${displayNumber(profile.cooldowns?.drug)}, medical: ${displayNumber(profile.cooldowns?.medical)}, booster: ${displayNumber(
-			profile.cooldowns?.booster
-		)}`
+		displayBar('Life', profile.life)
+	];
+	const linkedCooldownLines = [
+		`drug: ${displayCooldown(profile.cooldowns?.drug)}`,
+		`medical: ${displayCooldown(profile.cooldowns?.medical)}`,
+		`booster: ${displayCooldown(profile.cooldowns?.booster)}`
 	];
 	const bars = isLinkedProfile ? linkedBarLines.join('\n') : 'Available only for a paired account.';
+	const cooldowns = isLinkedProfile ? linkedCooldownLines.join('\n') : 'Available only for a paired account.';
 	const stats = isLinkedProfile ? getBattleStats(profile) : undefined;
 	const battleStats = stats
 		? `Strength: ${displayNumber(stats.strength)}
@@ -89,7 +102,8 @@ Total: ${displayNumber(stats.total)}`
 			{ name: 'Faction', value: faction, inline: true },
 			{ name: 'Status', value: buildStatus(profile), inline: false },
 			{ name: 'Last Action', value: buildLastAction(profile), inline: false },
-			{ name: 'Bars & Cooldowns', value: bars, inline: false },
+			{ name: 'Bars', value: bars, inline: false },
+			{ name: 'Cooldowns', value: cooldowns, inline: false },
 			...(isLinkedProfile ? [{ name: 'Battle Stats', value: battleStats, inline: false }] : [])
 		)
 		.setFooter({ text: isLinkedProfile ? 'Private profile shown only to you' : 'Public profile data' })

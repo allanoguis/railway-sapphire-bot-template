@@ -154,7 +154,7 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 				};
 			}
 			if (url.pathname === '/v2/user/cooldowns') {
-				return { ok: true, json: async () => ({ cooldowns: { drug: 0, medical: 0, booster: 0 } }) };
+				return { ok: true, json: async () => ({ cooldowns: { drug: 3661, medical: 90, booster: 0 } }) };
 			}
 			if (url.pathname === '/v2/user/battlestats') {
 				return {
@@ -183,7 +183,7 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 		assert.equal(result.isLinkedProfile, true);
 		assert.equal(result.profile.name, 'Profile Owner');
 		assert.equal(result.profile.energy.current, 100);
-		assert.equal(result.profile.cooldowns.drug, 0);
+		assert.equal(result.profile.cooldowns.drug, 3661);
 		assert.equal(result.profile.battlestats.strength, 10);
 		assert.deepEqual(result.profile.faction, {
 			id: 57494,
@@ -194,6 +194,14 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 			days_in_faction: 75
 		});
 		const profileEmbed = buildTornProfileEmbed(result.profile, result.isLinkedProfile).toJSON();
+		assert.equal(
+			profileEmbed.fields.find((field) => field.name === 'Bars').value,
+			'Energy: 100 / 100\nNerve: 50 / 50\nHappy: 500 / 500\nLife: 1,000 / 1,000'
+		);
+		assert.equal(
+			profileEmbed.fields.find((field) => field.name === 'Cooldowns').value,
+			'drug: 01h:01m:01s\nmedical: 00h:01m:30s\nbooster: 00h:00m:00s'
+		);
 		assert.equal(
 			profileEmbed.fields.find((field) => field.name === 'Faction').value,
 			'Id: 57494\nName: The Retreat\nPosition: Intelligence Officer\nDays in faction: 75'
@@ -224,6 +232,8 @@ test("pairs Torn keys to the Discord user and uses that user's key for profile r
 			otherProfileEmbed.fields.some((field) => field.name === 'Battle Stats'),
 			false
 		);
+		assert.equal(otherProfileEmbed.fields.find((field) => field.name === 'Bars').value, 'Available only for a paired account.');
+		assert.equal(otherProfileEmbed.fields.find((field) => field.name === 'Cooldowns').value, 'Available only for a paired account.');
 
 		const unaffiliatedProfile = await getTornProfile(storage, discordUserId, 789);
 		assert.equal(unaffiliatedProfile.profile.faction, undefined);
