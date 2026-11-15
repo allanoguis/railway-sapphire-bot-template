@@ -72,15 +72,15 @@ export function buildTornProfileEmbed(profile: TornProfile, isLinkedProfile: boo
 	const name = profile.name ?? 'Torn player';
 	const faction = buildFaction(profile);
 	const linkedBarLines = [
-		displayBar('⚡ Energy', profile.energy),
-		displayBar('🥷 Nerve', profile.nerve),
-		displayBar('😀 Happy', profile.happy),
-		displayBar('🛟 Life', profile.life)
+		displayBar('Energy', profile.energy),
+		displayBar('Nerve', profile.nerve),
+		displayBar('Happy', profile.happy),
+		displayBar('Life', profile.life)
 	];
 	const linkedCooldownLines = [
-		`💊 drug: ${displayCooldown(profile.cooldowns?.drug)}`,
-		`💉 medical: ${displayCooldown(profile.cooldowns?.medical)}`,
-		`🍾 booster: ${displayCooldown(profile.cooldowns?.booster)}`
+		`drug: ${displayCooldown(profile.cooldowns?.drug)}`,
+		`medical: ${displayCooldown(profile.cooldowns?.medical)}`,
+		`booster: ${displayCooldown(profile.cooldowns?.booster)}`
 	];
 	const bars = isLinkedProfile ? linkedBarLines.join('\n') : 'User has no linked profile.';
 	const cooldowns = isLinkedProfile ? linkedCooldownLines.join('\n') : 'User has no linked profile.';
@@ -98,12 +98,12 @@ Total: ${displayNumber(stats.total)}`
 		.setTitle(name)
 		.setDescription(`Torn profile${profile.player_id ? ` · ID ${profile.player_id}` : ''}`)
 		.addFields(
-			{ name: '🕹️ Level', value: displayNumber(profile.level), inline: true },
-			{ name: '⚔️ Faction', value: faction, inline: true },
-			{ name: '💍 Status', value: buildStatus(profile), inline: false },
-			{ name: '🕛 Last Action', value: buildLastAction(profile), inline: false },
-			{ name: '📊 Bars', value: bars, inline: false },
-			{ name: '⌛ Cooldowns', value: cooldowns, inline: false },
+			{ name: 'Level', value: displayNumber(profile.level), inline: true },
+			{ name: 'Faction', value: faction, inline: true },
+			{ name: 'Status', value: buildStatus(profile), inline: false },
+			{ name: 'Last Action', value: buildLastAction(profile), inline: false },
+			{ name: 'Bars', value: bars, inline: false },
+			{ name: 'Cooldowns', value: cooldowns, inline: false },
 			...(isLinkedProfile ? [{ name: 'Battle Stats', value: battleStats, inline: false }] : [])
 		)
 		.setFooter({ text: isLinkedProfile ? 'Private profile shown only to you' : 'Public profile data' })
