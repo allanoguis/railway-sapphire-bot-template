@@ -82,8 +82,8 @@ export function buildTornProfileEmbed(profile: TornProfile, isLinkedProfile: boo
 		`medical: ${displayCooldown(profile.cooldowns?.medical)}`,
 		`booster: ${displayCooldown(profile.cooldowns?.booster)}`
 	];
-	const bars = isLinkedProfile ? linkedBarLines.join('\n') : 'Available only for a paired account.';
-	const cooldowns = isLinkedProfile ? linkedCooldownLines.join('\n') : 'Available only for a paired account.';
+	const bars = isLinkedProfile ? linkedBarLines.join('\n') : 'User has no linked profile.';
+	const cooldowns = isLinkedProfile ? linkedCooldownLines.join('\n') : 'User has no linked profile.';
 	const stats = isLinkedProfile ? getBattleStats(profile) : undefined;
 	const battleStats = stats
 		? `Strength: ${displayNumber(stats.strength)}
