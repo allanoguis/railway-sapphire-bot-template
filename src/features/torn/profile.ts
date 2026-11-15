@@ -78,9 +78,9 @@ export function buildTornProfileEmbed(profile: TornProfile, isLinkedProfile: boo
 		displayBar('🛟Life', profile.life)
 	];
 	const linkedCooldownLines = [
-		`drug: ${displayCooldown(profile.cooldowns?.drug)}`,
-		`medical: ${displayCooldown(profile.cooldowns?.medical)}`,
-		`booster: ${displayCooldown(profile.cooldowns?.booster)}`
+		`💊drug: ${displayCooldown(profile.cooldowns?.drug)}`,
+		`💉medical: ${displayCooldown(profile.cooldowns?.medical)}`,
+		`🍾booster: ${displayCooldown(profile.cooldowns?.booster)}`
 	];
 	const bars = isLinkedProfile ? linkedBarLines.join('\n') : 'User has no linked profile.';
 	const cooldowns = isLinkedProfile ? linkedCooldownLines.join('\n') : 'User has no linked profile.';
