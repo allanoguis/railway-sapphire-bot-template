@@ -14,6 +14,17 @@ interface FactionCommandContext {
 	};
 }
 
+const tornSubcommands = {
+	profile: {
+		name: 'profile',
+		description: 'View your profile or another player with your paired Torn API key.'
+	},
+	faction: {
+		name: 'faction',
+		description: 'Post your faction details and roster in the #bot-commands channel.'
+	}
+} as const;
+
 export async function runTornFactionCommand(interaction: ChatInputCommandInteraction, context: FactionCommandContext) {
 	const { tornFactionChannelId } = context;
 	if (!tornFactionChannelId) {
@@ -65,6 +76,8 @@ export async function runTornFactionCommand(interaction: ChatInputCommandInterac
 	description: 'View Torn profiles or post your faction information.'
 })
 export class TornCommand extends Command {
+	public readonly helpSubcommands = Object.values(tornSubcommands);
+
 	public override registerApplicationCommands(registry: ChatInputCommand.Registry) {
 		registry.registerChatInputCommand((builder) =>
 			builder
@@ -72,15 +85,13 @@ export class TornCommand extends Command {
 				.setDescription(this.description)
 				.addSubcommand((subcommand) =>
 					subcommand
-						.setName('profile')
-						.setDescription('View your profile or another player with your paired Torn API key.')
+						.setName(tornSubcommands.profile.name)
+						.setDescription(tornSubcommands.profile.description)
 						.addStringOption((option) =>
 							option.setName('player-id').setDescription('Torn player ID; omit to view your paired profile.').setRequired(false)
 						)
 				)
-				.addSubcommand((subcommand) =>
-					subcommand.setName('faction').setDescription('Post your faction details and roster in the permitted channel.')
-				)
+				.addSubcommand((subcommand) => subcommand.setName(tornSubcommands.faction.name).setDescription(tornSubcommands.faction.description))
 		);
 	}
 

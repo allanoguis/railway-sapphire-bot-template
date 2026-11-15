@@ -86,6 +86,7 @@ dist
 /test/
 !/test/
 /test/*
+!/test/command-info.test.cjs
 !/test/torn-profile.test.cjs
 !/test/torn-faction.test.cjs
 !/test/storage.test.cjs
