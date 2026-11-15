@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { PairCommand } = require('../dist/commands/pair.js');
 const { getTornProfile, pairTornAccount, unpairTornAccount, verifyTornAccount } = require('../dist/features/torn/service.js');
-const { buildTornProfileEmbed } = require('../dist/features/torn/presentation.js');
+const { buildTornProfileEmbed } = require('../dist/features/torn/profile.js');
 
 function createStorage() {
 	const values = new Map();

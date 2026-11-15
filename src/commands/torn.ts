@@ -1,6 +1,6 @@
 import { ApplyOptions } from '@sapphire/decorators';
 import { ChatInputCommand, Command } from '@sapphire/framework';
-import { buildTornProfileEmbed } from '../features/torn/presentation';
+import { buildTornProfileEmbed } from '../features/torn/profile';
 import { getTornProfile, TornApiError } from '../features/torn/service';
 
 @ApplyOptions<Command.Options>({
