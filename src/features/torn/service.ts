@@ -56,6 +56,51 @@ export interface TornProfile {
 	total?: number;
 }
 
+export interface TornFactionBasic {
+	id: number;
+	name: string;
+	tag: string;
+	tag_image: string;
+	leader_id: number;
+	respect: number;
+	days_old: number;
+	members: number;
+	best_chain: number;
+}
+
+export interface TornFactionMember {
+	id: number;
+	name: string;
+	position: string;
+	level: number;
+	status?: {
+		description?: string;
+		details?: string | null;
+		state?: string;
+	};
+	last_action?: {
+		status?: string;
+		timestamp?: number;
+		relative?: string;
+	};
+}
+
+export interface TornFactionWar {
+	kind: string;
+	territory?: string;
+	end?: number | null;
+	factions: Array<{ id: number; name: string; score: number }>;
+}
+
+export interface TornFactionOverview {
+	basic: TornFactionBasic;
+	members: TornFactionMember[];
+	chain: { current?: number; max?: number; timeout?: number } | undefined;
+	wars: TornFactionWar[];
+	pacts: Array<{ factionId: number; factionName: string; until: number }>;
+	territories: string[];
+}
+
 interface StoredCredential {
 	version: 1;
 	playerId: number;
@@ -129,14 +174,14 @@ function getApiErrorMessage(code: number | undefined): string {
 		case 6:
 			return 'That Torn player ID was not found.';
 		case 7:
-			return 'Torn does not allow this key to access that player data.';
+			return 'Torn does not allow this key to access the requested data.';
 		case 10:
 			return 'This Torn API key cannot be used while its owner is in federal jail.';
 		case 13:
 		case 18:
 			return 'This Torn API key is disabled. Please check it in Torn and pair a valid key with `/pair`.';
 		case 16:
-			return 'This Torn API key does not have sufficient access for the requested profile data.';
+			return 'This Torn API key does not have sufficient access for the requested data.';
 		default:
 			return 'Torn could not provide the requested profile data. Please try again later.';
 	}
@@ -186,11 +231,7 @@ function normalizeProfile(payload: Record<string, unknown>): TornProfile {
 
 type TornUserSelection = 'basic' | 'profile' | 'faction' | 'bars' | 'cooldowns' | 'battlestats';
 
-async function requestSelection(apiKey: string, selection: TornUserSelection, playerId?: number): Promise<Record<string, unknown>> {
-	const url = new URL(`https://api.torn.com/v2/user/${selection}`);
-	if (playerId !== undefined) url.searchParams.set('id', String(playerId));
-	url.searchParams.set('key', apiKey);
-
+async function requestTornPayload(url: URL): Promise<Record<string, unknown>> {
 	let response: Response;
 	try {
 		response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
@@ -216,6 +257,19 @@ async function requestSelection(apiKey: string, selection: TornUserSelection, pl
 	if (!response.ok) throw new TornApiError('Torn returned an unexpected response. Please try again later.');
 
 	return payload;
+}
+
+async function requestSelection(apiKey: string, selection: TornUserSelection, playerId?: number): Promise<Record<string, unknown>> {
+	const url = new URL(`https://api.torn.com/v2/user/${selection}`);
+	if (playerId !== undefined) url.searchParams.set('id', String(playerId));
+	url.searchParams.set('key', apiKey);
+	return requestTornPayload(url);
+}
+
+async function requestFactionEndpoint(apiKey: string, endpoint: string): Promise<Record<string, unknown>> {
+	const url = new URL(`https://api.torn.com/v2/faction/${endpoint}`);
+	url.searchParams.set('key', apiKey);
+	return requestTornPayload(url);
 }
 
 function readSelection(payload: Record<string, unknown>, selection: string): Record<string, unknown> {
@@ -250,6 +304,135 @@ async function requestFaction(apiKey: string, playerId?: number): Promise<TornPr
 	if (faction === undefined || faction === null) return undefined;
 	if (!isRecord(faction)) throw new TornApiError('Torn returned an unexpected response. Please try again later.');
 	return normalizeFaction(faction);
+}
+
+function requiredNumber(record: Record<string, unknown>, key: string): number {
+	const value = record[key];
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
+		throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+	}
+	return value;
+}
+
+function requiredString(record: Record<string, unknown>, key: string): string {
+	const value = record[key];
+	if (typeof value !== 'string') {
+		throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+	}
+	return value;
+}
+
+function normalizeFactionBasic(payload: Record<string, unknown>): TornFactionBasic {
+	const basic = readSelection(payload, 'basic');
+	return {
+		id: requiredNumber(basic, 'id'),
+		name: requiredString(basic, 'name'),
+		tag: requiredString(basic, 'tag'),
+		tag_image: requiredString(basic, 'tag_image'),
+		leader_id: requiredNumber(basic, 'leader_id'),
+		respect: requiredNumber(basic, 'respect'),
+		days_old: requiredNumber(basic, 'days_old'),
+		members: requiredNumber(basic, 'members'),
+		best_chain: requiredNumber(basic, 'best_chain')
+	};
+}
+
+function normalizeFactionMembers(payload: Record<string, unknown>): TornFactionMember[] {
+	const value = payload.members;
+	if (!Array.isArray(value)) throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+
+	return value.map((entry) => {
+		if (!isRecord(entry)) throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+		const member: TornFactionMember = {
+			id: requiredNumber(entry, 'id'),
+			name: requiredString(entry, 'name'),
+			position: requiredString(entry, 'position'),
+			level: requiredNumber(entry, 'level')
+		};
+		if (isRecord(entry.status)) {
+			member.status = {
+				description: typeof entry.status.description === 'string' ? entry.status.description : undefined,
+				details: typeof entry.status.details === 'string' || entry.status.details === null ? entry.status.details : undefined,
+				state: typeof entry.status.state === 'string' ? entry.status.state : undefined
+			};
+		}
+		if (isRecord(entry.last_action)) {
+			member.last_action = {
+				status: typeof entry.last_action.status === 'string' ? entry.last_action.status : undefined,
+				timestamp: typeof entry.last_action.timestamp === 'number' ? entry.last_action.timestamp : undefined,
+				relative: typeof entry.last_action.relative === 'string' ? entry.last_action.relative : undefined
+			};
+		}
+		return member;
+	});
+}
+
+function normalizeFactionWars(payload: Record<string, unknown>): {
+	wars: TornFactionWar[];
+	pacts: TornFactionOverview['pacts'];
+} {
+	const warsObject = readSelection(payload, 'wars');
+	const wars: TornFactionWar[] = [];
+	const addWar = (kind: string, value: unknown) => {
+		if (!isRecord(value)) throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+		const { factions } = value;
+		if (!Array.isArray(factions)) throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+		const normalizedFactions = factions.map((faction) => {
+			if (!isRecord(faction)) throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+			return {
+				id: requiredNumber(faction, 'id'),
+				name: requiredString(faction, 'name'),
+				score: requiredNumber(faction, 'score')
+			};
+		});
+		wars.push({
+			kind,
+			...(typeof value.territory === 'string' ? { territory: value.territory } : {}),
+			...(typeof value.end === 'number' || value.end === null ? { end: value.end } : {}),
+			factions: normalizedFactions
+		});
+	};
+
+	if (warsObject.ranked !== null && warsObject.ranked !== undefined) addWar('Ranked war', warsObject.ranked);
+	for (const [key, label] of [
+		['raids', 'Raid'],
+		['territory', 'Territory war']
+	] as const) {
+		const entries = warsObject[key];
+		if (!Array.isArray(entries)) throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+		for (const entry of entries) addWar(label, entry);
+	}
+
+	const pactEntries = payload.pacts;
+	if (!Array.isArray(pactEntries)) throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+	const pacts = pactEntries.map((entry) => {
+		if (!isRecord(entry)) throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+		return {
+			factionId: requiredNumber(entry, 'faction_id'),
+			factionName: requiredString(entry, 'faction_name'),
+			until: requiredNumber(entry, 'until')
+		};
+	});
+	return { wars, pacts };
+}
+
+function normalizeFactionChain(payload: Record<string, unknown>): TornFactionOverview['chain'] {
+	const { chain } = payload;
+	if (!isRecord(chain)) throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+	return {
+		...(typeof chain.current === 'number' ? { current: chain.current } : {}),
+		...(typeof chain.max === 'number' ? { max: chain.max } : {}),
+		...(typeof chain.timeout === 'number' ? { timeout: chain.timeout } : {})
+	};
+}
+
+function normalizeFactionTerritories(payload: Record<string, unknown>): string[] {
+	const territories = payload.territory;
+	if (!Array.isArray(territories)) throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+	return territories.map((territory) => {
+		if (!isRecord(territory)) throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
+		return requiredString(territory, 'id');
+	});
 }
 
 function readBar(value: unknown): TornBar | undefined {
@@ -390,5 +573,50 @@ export async function getTornProfile(
 			battlestats
 		},
 		isLinkedProfile: true
+	};
+}
+
+export async function getTornFactionOverview(storage: TornStorage | null, discordUserId: string): Promise<TornFactionOverview> {
+	if (storage === null) {
+		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
+	}
+
+	const credential = await loadCredential(storage, discordUserId);
+	if (!credential) {
+		throw new TornApiError('Pair your Torn API key with `/pair` to request faction information.');
+	}
+
+	const encryptionKey = getTornEncryptionKey(process.env);
+	if (!encryptionKey) {
+		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
+	}
+
+	const apiKey = decryptApiKey(credential, encryptionKey, discordUserId);
+	const membershipPayload = await requestSelection(apiKey, 'faction');
+	const membership = normalizeFaction(membershipPayload.faction);
+	if (!membership?.id) {
+		throw new TornApiError('Your paired Torn account is not currently in a faction.');
+	}
+
+	const [basicPayload, membersPayload, chainPayload, warsPayload, territoriesPayload] = await Promise.all([
+		requestFactionEndpoint(apiKey, 'basic'),
+		requestFactionEndpoint(apiKey, 'members'),
+		requestFactionEndpoint(apiKey, 'chain'),
+		requestFactionEndpoint(apiKey, 'wars'),
+		requestFactionEndpoint(apiKey, 'territory')
+	]);
+	const basic = normalizeFactionBasic(basicPayload);
+	if (basic.id !== membership.id) {
+		throw new TornApiError('Torn returned inconsistent faction data. Please try again later.');
+	}
+	const { wars, pacts } = normalizeFactionWars(warsPayload);
+
+	return {
+		basic,
+		members: normalizeFactionMembers(membersPayload),
+		chain: normalizeFactionChain(chainPayload),
+		wars,
+		pacts,
+		territories: normalizeFactionTerritories(territoriesPayload)
 	};
 }

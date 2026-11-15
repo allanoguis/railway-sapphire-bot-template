@@ -20,6 +20,7 @@ const main = async () => {
 	try {
 		const config = loadConfig();
 		container.storage = null;
+		container.tornFactionChannelId = config.tornFactionChannelId;
 		client = new SapphireClient({
 			caseInsensitiveCommands: true,
 			logger: { instance: logger },

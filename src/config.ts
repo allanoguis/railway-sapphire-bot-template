@@ -5,6 +5,7 @@ export interface BotConfig {
 	readonly healthPort?: number;
 	readonly databaseUrl?: string;
 	readonly tornEncryptionKey?: Buffer;
+	readonly tornFactionChannelId?: string;
 }
 
 function getPositiveInteger(environment: NodeJS.ProcessEnv, name: string, defaultValue: number): number {
@@ -59,6 +60,16 @@ function getTornEncryptionKey(environment: NodeJS.ProcessEnv): Buffer | undefine
 	return Buffer.from(value, 'hex');
 }
 
+function getTornFactionChannelId(environment: NodeJS.ProcessEnv): string | undefined {
+	const value = environment.TORN_FACTION_CHANNEL_ID?.trim();
+	if (!value) return undefined;
+	if (!/^\d{17,20}$/.test(value)) {
+		throw new Error('TORN_FACTION_CHANNEL_ID must be a valid Discord channel ID.');
+	}
+
+	return value;
+}
+
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): BotConfig {
 	const discordToken = environment.DISCORD_TOKEN?.trim();
 
@@ -69,6 +80,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): BotCon
 	const healthPort = getPort(environment);
 	const databaseUrl = getDatabaseUrl(environment);
 	const tornEncryptionKey = getTornEncryptionKey(environment);
+	const tornFactionChannelId = getTornFactionChannelId(environment);
 
 	return {
 		discordToken,
@@ -76,7 +88,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): BotCon
 		commandCooldownLimit: getPositiveInteger(environment, 'COMMAND_COOLDOWN_LIMIT', 1),
 		...(healthPort === undefined ? {} : { healthPort }),
 		...(databaseUrl === undefined ? {} : { databaseUrl }),
-		...(tornEncryptionKey === undefined ? {} : { tornEncryptionKey })
+		...(tornEncryptionKey === undefined ? {} : { tornEncryptionKey }),
+		...(tornFactionChannelId === undefined ? {} : { tornFactionChannelId })
 	};
 }
 
