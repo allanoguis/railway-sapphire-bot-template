@@ -185,7 +185,7 @@ export function buildTornFactionOrganizedCrimeSummaryMessage(report: TornFaction
 		`Ongoing: ${report.counts.ongoing}`,
 		`Completed: ${report.counts.completed}`,
 		'',
-		`Last updated: ${new Date(report.counts.lastUpdatedAt).toISOString()}`,
+		`Last updated: <t:${report.counts.lastUpdatedAt}:F>`,
 		`Link: ${FACTION_CRIMES_URL}`
 	].join('\n');
 }
@@ -481,7 +481,7 @@ export async function getTornFactionOrganizedCrimes(storage: TornStorage | null,
 			recruiting,
 			ongoing,
 			completed,
-			lastUpdatedAt: Date.now()
+			lastUpdatedAt: Math.floor(Date.now() / 1000)
 		}
 	};
 }
