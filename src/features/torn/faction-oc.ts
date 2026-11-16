@@ -164,7 +164,7 @@ export function buildTornFactionOrganizedCrimeEmbeds(report: TornFactionOrganize
 	if (report.crimes.length === 0) {
 		return [
 			new EmbedBuilder()
-				.setColor(0x5865f2)
+				.setColor(0xE3CD24)
 				.setTitle(`Active organized crimes for ${factionName}`)
 				.setURL(factionUrl)
 				.setDescription('No recruiting or planning organized crimes were found.')
@@ -188,7 +188,7 @@ export function buildTornFactionOrganizedCrimeSummaryEmbed(report: TornFactionOr
 	const factionName = displayText(report.faction.name, 'Torn faction');
 	const spacing = '\u2003';
 	return new EmbedBuilder()
-		.setColor(0x5865f2)
+		.setColor(0xE3CD24)
 		.setTitle(`📊${spacing}**Organized Crime Stats**`)
 		.setDescription(
 			[
