@@ -73,6 +73,17 @@ test('reads a verified-user Torn credential by Discord ID', async () => {
 	assert.deepEqual(pool.calls[0].values, ['discord-123']);
 });
 
+test('matches registered Torn player IDs without selecting credential or Discord ID fields', async () => {
+	const pool = createPool([{ rows: [{ player_id: '123' }, { player_id: '456' }], rowCount: 2 }]);
+	const storage = new PostgresStorage(pool);
+
+	assert.deepEqual(await storage.getRegisteredTornPlayerIds([123, 789, 456]), new Set([123, 456]));
+	assert.match(pool.calls[0].sql, /torn_api ->> 'playerId' = ANY\(\$1::text\[\]\)/);
+	assert.doesNotMatch(pool.calls[0].sql, /SELECT .*\bdiscord_id\b/i);
+	assert.doesNotMatch(pool.calls[0].sql, /SELECT .*\btorn_api(?:\s*,|\s+FROM)/i);
+	assert.deepEqual(pool.calls[0].values, [['123', '789', '456']]);
+});
+
 test('upserts JSON credentials with parameterized SQL', async () => {
 	const pool = createPool();
 	const storage = new PostgresStorage(pool);

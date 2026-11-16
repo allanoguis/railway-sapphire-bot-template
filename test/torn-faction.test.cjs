@@ -23,6 +23,10 @@ function createStorage() {
 		},
 		async deleteTornApi(id) {
 			return values.delete(id);
+		},
+		async getRegisteredTornPlayerIds(playerIds) {
+			const registeredIds = new Set([...values.values()].map((credential) => credential.playerId));
+			return new Set(playerIds.filter((playerId) => registeredIds.has(playerId)));
 		}
 	};
 }
@@ -191,27 +195,11 @@ test('fetches faction details and the full roster using only v2 endpoints and th
 	}
 });
 
-test('finds members without available OC slots and follows the crimes pagination link', async () => {
+test('finds faction members without a paired Torn API key in storage', async () => {
 	const originalFetch = global.fetch;
 	const previousEncryptionKey = process.env.TORN_ENCRYPTION_KEY;
 	const storage = createStorage();
 	const { responses } = createFactionResponses(4);
-	const crimePages = {
-		0: {
-			crimes: Array.from({ length: 20 }, (_, index) => ({
-				id: index + 1,
-				slots: index === 0 ? [{ user: { id: 123 } }, { user: { id: 1001 } }, { user: null }] : []
-			})),
-			_metadata: {
-				links: { next: 'https://api.torn.com/v2/faction/crimes?cat=available&limit=20&offset=20' }
-			}
-		},
-		20: {
-			crimes: [{ id: 21, slots: [{ user: { id: 1001 } }] }],
-			_metadata: { links: {} }
-		}
-	};
-	const crimeOffsets = [];
 	process.env.TORN_ENCRYPTION_KEY = 'bc'.repeat(32);
 
 	try {
@@ -219,13 +207,6 @@ test('finds members without available OC slots and follows the crimes pagination
 			const url = new URL(input);
 			assert.equal(url.origin, 'https://api.torn.com');
 			assert.equal(url.searchParams.get('key'), apiKey);
-			if (url.pathname === '/v2/faction/crimes') {
-				assert.equal(url.searchParams.get('cat'), 'available');
-				assert.equal(url.searchParams.get('limit'), '20');
-				const offset = Number(url.searchParams.get('offset'));
-				crimeOffsets.push(offset);
-				return { ok: true, json: async () => crimePages[offset] };
-			}
 
 			const payload = responses[url.pathname];
 			assert.ok(payload, `Unexpected Torn API request: ${url.pathname}`);
@@ -235,13 +216,11 @@ test('finds members without available OC slots and follows the crimes pagination
 
 		const report = await getTornFactionUnregisteredReport(storage, discordUserId);
 
-		assert.deepEqual(crimeOffsets, [0, 20]);
 		assert.equal(report.faction.id, factionId);
-		assert.equal(report.availableCrimeCount, 21);
 		assert.equal(report.factionMemberCount, 4);
 		assert.deepEqual(
 			report.members.map((member) => member.id),
-			[1002, 1003]
+			[1001, 1002, 1003]
 		);
 	} finally {
 		global.fetch = originalFetch;
@@ -369,14 +348,11 @@ test('posts faction info and member roster separately in the configured channel'
 	}
 });
 
-test('posts the unregistered OC member list as a channel message', async () => {
+test('posts faction members without a paired Torn API key as a channel message', async () => {
 	const originalFetch = global.fetch;
 	const previousEncryptionKey = process.env.TORN_ENCRYPTION_KEY;
 	const storage = createStorage();
 	const { responses } = createFactionResponses(4);
-	responses['/v2/faction/crimes'] = {
-		crimes: [{ id: 1, slots: [{ user: { id: 123 } }, { user: { id: 1001 } }] }]
-	};
 	const posted = [];
 	const channel = {
 		isTextBased: () => true,
@@ -390,7 +366,6 @@ test('posts the unregistered OC member list as a channel message', async () => {
 	try {
 		global.fetch = async (input) => {
 			const url = new URL(input);
-			if (url.pathname === '/v2/faction/crimes') assert.equal(url.searchParams.get('cat'), 'available');
 			const payload = responses[url.pathname];
 			assert.ok(payload, `Unexpected Torn API request: ${url.pathname}`);
 			return { ok: true, json: async () => payload };
@@ -409,11 +384,11 @@ test('posts the unregistered OC member list as a channel message', async () => {
 
 		const rendered = JSON.stringify(posted);
 		assert.equal(posted.length, 1);
-		assert.match(rendered, /OC registration for The Retreat/);
+		assert.match(rendered, /Unverified faction members for The Retreat/);
+		assert.match(rendered, /Faction Member 2/);
 		assert.match(rendered, /Faction Member 3/);
 		assert.match(rendered, /Faction Member 4/);
 		assert.doesNotMatch(rendered, /Faction Leader/);
-		assert.doesNotMatch(rendered, /Faction Member 2/);
 		assert.ok(posted.every((message) => message.allowedMentions.parse.length === 0));
 		assert.match(response, /Posted the unregistered faction member list/);
 		assert.equal(interaction.calls[0][0], 'defer');
@@ -425,18 +400,15 @@ test('posts the unregistered OC member list as a channel message', async () => {
 	}
 });
 
-test('lists all returned faction members when there are no available OCs', () => {
+test('reports when every returned faction member has paired', () => {
 	const report = {
 		faction: { id: factionId, name: 'The Retreat', tag: 'RT' },
-		availableCrimeCount: 0,
 		factionMemberCount: 1,
-		members: [{ id: 123, name: 'Faction Leader', position: 'Leader', level: 100 }]
+		members: []
 	};
 	const rendered = JSON.stringify(buildTornFactionUnregisteredEmbeds(report).map((embed) => embed.toJSON()));
 
-	assert.match(rendered, /not registered in any available OC/);
-	assert.match(rendered, /No recruiting or planning OCs are currently available/);
-	assert.match(rendered, /Faction Leader/);
+	assert.match(rendered, /All 1 returned faction members have paired a Torn API key with the bot/);
 });
 
 test('reports an unpaired account without posting faction data', async () => {

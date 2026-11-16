@@ -30,7 +30,7 @@ const tornSubcommands = {
 	},
 	factionUnregistered: {
 		name: 'faction unregistered',
-		description: 'Post faction members not registered in any available OC.'
+		description: 'Post faction members without a Torn API account paired with the bot.'
 	}
 } as const;
 
@@ -102,7 +102,7 @@ export async function runTornFactionCommand(
 
 @ApplyOptions<Command.Options>({
 	name: 'torn',
-	description: 'View Torn profiles, faction information, and OC registrations.'
+	description: 'View Torn profiles, faction information, and member pairing status.'
 })
 export class TornCommand extends Command {
 	public readonly helpCategory = 'torn' as const;
@@ -124,7 +124,7 @@ export class TornCommand extends Command {
 				.addSubcommandGroup((group) =>
 					group
 						.setName('faction')
-						.setDescription('Post faction information, the roster, or the OC registration report.')
+						.setDescription('Post faction information, the roster, or the paired-account report.')
 						.addSubcommand((subcommand) => subcommand.setName('info').setDescription(tornSubcommands.factionInfo.description))
 						.addSubcommand((subcommand) => subcommand.setName('members').setDescription(tornSubcommands.factionMembers.description))
 						.addSubcommand((subcommand) =>

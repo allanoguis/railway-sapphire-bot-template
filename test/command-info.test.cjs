@@ -24,7 +24,10 @@ test('groups Core and Torn commands and lists their subcommands instead of paren
 				{ name: 'profile', description: 'View a Torn profile.' },
 				{ name: 'faction info', description: 'Post faction information.' },
 				{ name: 'faction members', description: 'Post the faction roster.' },
-				{ name: 'faction unregistered', description: 'Post faction members not registered in any available OC.' }
+				{
+					name: 'faction unregistered',
+					description: 'Post faction members without a Torn API account paired with the bot.'
+				}
 			]
 		},
 		{
@@ -52,7 +55,7 @@ test('groups Core and Torn commands and lists their subcommands instead of paren
 			'/pair - Pair a Torn account.',
 			'/torn faction info - Post faction information.',
 			'/torn faction members - Post the faction roster.',
-			'/torn faction unregistered - Post faction members not registered in any available OC.',
+			'/torn faction unregistered - Post faction members without a Torn API account paired with the bot.',
 			'/torn profile - View a Torn profile.'
 		].join('\n')
 	);
