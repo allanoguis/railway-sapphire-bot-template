@@ -40,7 +40,7 @@ export async function runTornFactionCommand(interaction: ChatInputCommandInterac
 
 	if (!interaction.inGuild() || interaction.channelId !== tornFactionChannelId) {
 		return interaction.reply({
-			content: 'Use `/torn faction info` or `/torn faction members` in the configured channel.',
+			content: 'Use `/torn faction info` or `/torn faction members` in the #bot-commands channel.',
 			flags: 'Ephemeral'
 		});
 	}
