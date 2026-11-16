@@ -187,13 +187,13 @@ export function buildTornFactionOrganizedCrimeEmbeds(report: TornFactionOrganize
 export function buildTornFactionOrganizedCrimeSummaryMessage(report: TornFactionOrganizedCrimes): string {
 	const factionName = displayText(report.faction.name, 'Torn faction');
 	return [
-		'Faction Organized crime links:',
-		`Recruiting: ${report.counts.recruiting}`,
-		`Ongoing: ${report.counts.ongoing}`,
-		`Completed: ${report.counts.completed}`,
+		'📊 **Organized Crime Stats**',
+		`📢 **Recruiting:** ${report.counts.recruiting}`,
+		`🥷 **Ongoing:** ${report.counts.ongoing}`,
+		`✅ **Completed:** ${report.counts.completed}`,
 		'',
-		`Last updated: <t:${report.counts.lastUpdatedAt}:F>`,
-		`Link: [${factionName} Organized Crimes Page](${FACTION_CRIMES_URL})`
+		`🕛**Last updated:** <t:${report.counts.lastUpdatedAt}:F>`,
+		`🔗 **Link:** [${factionName} Organized Crimes Page](${FACTION_CRIMES_URL})`
 	].join('\n');
 }
 
