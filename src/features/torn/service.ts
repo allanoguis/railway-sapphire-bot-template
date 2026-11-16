@@ -110,9 +110,12 @@ interface StoredCredential {
 }
 
 export class TornApiError extends Error {
-	public constructor(message: string) {
+	public readonly code?: number;
+
+	public constructor(message: string, code?: number) {
 		super(message);
 		this.name = 'TornApiError';
+		this.code = code;
 	}
 }
 
@@ -251,7 +254,7 @@ export async function requestTornPayload(url: URL): Promise<Record<string, unkno
 	const apiError = payload.error;
 	if (isRecord(apiError)) {
 		const code = typeof apiError.code === 'number' ? apiError.code : undefined;
-		throw new TornApiError(getApiErrorMessage(code));
+		throw new TornApiError(getApiErrorMessage(code), code);
 	}
 	if (apiError !== undefined) throw new TornApiError(getApiErrorMessage(undefined));
 	if (!response.ok) throw new TornApiError('Torn returned an unexpected response. Please try again later.');

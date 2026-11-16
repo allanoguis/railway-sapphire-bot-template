@@ -79,6 +79,15 @@ function displayText(value: string | undefined, fallback = 'Unavailable'): strin
 	return text ? escapeMarkdown(text).replace(/\s+/g, ' ').slice(0, 100) : fallback;
 }
 
+function displayOutcome(outcome: string | undefined): string {
+	if (outcome === undefined) return 'Pending';
+	return outcome === 'Successful' ? 'Passed' : `Not passed (${displayText(outcome)})`;
+}
+
+function displayCheckpointPassRate(value: number | undefined): string {
+	return typeof value === 'number' && Number.isFinite(value) ? `${value.toLocaleString()}%` : 'Unavailable';
+}
+
 function chunkLines(lines: string[], maxCharacters = 3500): string[][] {
 	const pages: string[][] = [];
 	let page: string[] = [];
@@ -100,16 +109,30 @@ function chunkLines(lines: string[], maxCharacters = 3500): string[][] {
 
 function buildCrimeLines(crime: TornFactionOrganizedCrime): string[] {
 	const readyAt = crime.readyAt && Number.isSafeInteger(crime.readyAt) && crime.readyAt > 0 ? ` - Ready <t:${crime.readyAt}:R>` : '';
-	const lines = [`**${displayText(crime.name)}** - ${crime.status}${readyAt}`];
+	const scoreLevel = crime.difficulty === undefined ? '' : ` - OC score level (difficulty): ${crime.difficulty.toLocaleString()}`;
+	const lines = [`**${displayText(crime.name)}** - ${crime.status}${scoreLevel}${readyAt}`];
 	if (!crime.slots?.length) return [...lines, '- No slot details returned.'];
 
 	for (const slot of crime.slots) {
 		const position = displayText(slot.positionInfo?.label ?? slot.position);
-		const member = slot.user ? `Torn ID ${slot.user.id}` : 'Open';
-		const item = slot.itemRequirement
-			? ` - Item ${slot.itemRequirement.id} ${slot.itemRequirement.isAvailable ? 'available' : 'unavailable'}`
-			: '';
-		lines.push(`- ${position}: ${member}${item}`);
+		const checkpointPassRate = displayCheckpointPassRate(slot.checkpointPassRate);
+		if (!slot.user) {
+			const item = slot.itemRequirement ? ` - Requires Item ID ${slot.itemRequirement.id}` : '';
+			lines.push(`- ${position}: Open${item} | CPR ${checkpointPassRate}`);
+			continue;
+		}
+
+		const member = `Torn ID ${slot.user.id}`;
+		const outcome = displayOutcome(slot.user.outcome);
+		if (slot.itemRequirement && !slot.itemRequirement.isAvailable) {
+			lines.push(
+				`**MISSING ITEM** - **${member}** in ${position} needs Item ID ${slot.itemRequirement.id} | CPR ${checkpointPassRate} | Outcome: ${outcome}`
+			);
+			continue;
+		}
+
+		const item = slot.itemRequirement ? ` | Item ID ${slot.itemRequirement.id} available` : '';
+		lines.push(`- ${position}: ${member}${item} | CPR ${checkpointPassRate} | Outcome: ${outcome}`);
 	}
 	return lines;
 }
@@ -131,7 +154,7 @@ export function buildTornFactionOrganizedCrimeEmbeds(report: TornFactionOrganize
 	const pages = chunkLines(lines);
 	return pages.map((page, index) =>
 		new EmbedBuilder()
-			.setColor(0x5865f2)
+			.setColor(page.some((line) => line.includes('**MISSING ITEM**')) ? 0xed4245 : 0x5865f2)
 			.setTitle(
 				`Active organized crimes for ${factionName} (${report.crimes.length})${pages.length > 1 ? ` - ${index + 1}/${pages.length}` : ''}`
 			)
