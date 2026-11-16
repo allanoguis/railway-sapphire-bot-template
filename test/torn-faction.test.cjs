@@ -2,8 +2,9 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { loadConfig } = require('../dist/config.js');
 const { runTornFactionCommand } = require('../dist/commands/torn.js');
-const { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds, buildTornFactionUnregisteredEmbeds } = require('../dist/features/torn/faction.js');
-const { getTornFactionOverview, getTornFactionUnregisteredReport, pairTornAccount } = require('../dist/features/torn/service.js');
+const { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds } = require('../dist/features/torn/faction.js');
+const { buildTornFactionUnregisteredEmbeds, getTornFactionUnregisteredReport } = require('../dist/features/torn/faction-unregistered.js');
+const { getTornFactionOverview, pairTornAccount } = require('../dist/features/torn/service.js');
 
 const apiKey = 'f'.repeat(16);
 const discordUserId = 'discord-user-faction';

@@ -1,9 +1,10 @@
 import { ApplyOptions } from '@sapphire/decorators';
 import { ChatInputCommand, Command } from '@sapphire/framework';
 import type { ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
-import { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds, buildTornFactionUnregisteredEmbeds } from '../features/torn/faction';
+import { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds } from '../features/torn/faction';
+import { buildTornFactionUnregisteredEmbeds, getTornFactionUnregisteredReport } from '../features/torn/faction-unregistered';
 import { buildTornProfileEmbed } from '../features/torn/profile';
-import { getTornFactionOverview, getTornFactionUnregisteredReport, getTornProfile, TornApiError } from '../features/torn/service';
+import { getTornFactionOverview, getTornProfile, TornApiError } from '../features/torn/service';
 import type { PostgresStorage } from '../lib/postgres-storage';
 
 interface FactionCommandContext {
