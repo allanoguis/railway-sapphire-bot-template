@@ -1,9 +1,9 @@
 import { ApplyOptions } from '@sapphire/decorators';
 import { ChatInputCommand, Command } from '@sapphire/framework';
-import type { ChatInputCommandInteraction } from 'discord.js';
-import { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds } from '../features/torn/faction';
+import type { ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
+import { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds, buildTornFactionUnregisteredEmbeds } from '../features/torn/faction';
 import { buildTornProfileEmbed } from '../features/torn/profile';
-import { getTornFactionOverview, getTornProfile, TornApiError } from '../features/torn/service';
+import { getTornFactionOverview, getTornFactionUnregisteredReport, getTornProfile, TornApiError } from '../features/torn/service';
 import type { PostgresStorage } from '../lib/postgres-storage';
 
 interface FactionCommandContext {
@@ -26,10 +26,18 @@ const tornSubcommands = {
 	factionMembers: {
 		name: 'faction members',
 		description: 'Post the faction roster in the #bot-commands channel.'
+	},
+	factionUnregistered: {
+		name: 'faction unregistered',
+		description: 'Post faction members not registered in any available OC.'
 	}
 } as const;
 
-export async function runTornFactionCommand(interaction: ChatInputCommandInteraction, context: FactionCommandContext, view: 'info' | 'members') {
+export async function runTornFactionCommand(
+	interaction: ChatInputCommandInteraction,
+	context: FactionCommandContext,
+	view: 'info' | 'members' | 'unregistered'
+) {
 	const { tornFactionChannelId } = context;
 	if (!tornFactionChannelId) {
 		return interaction.reply({
@@ -40,7 +48,7 @@ export async function runTornFactionCommand(interaction: ChatInputCommandInterac
 
 	if (!interaction.inGuild() || interaction.channelId !== tornFactionChannelId) {
 		return interaction.reply({
-			content: 'Use `/torn faction info` or `/torn faction members` in the #bot-commands channel.',
+			content: 'Use `/torn faction info`, `/torn faction members`, or `/torn faction unregistered` in the configured channel.',
 			flags: 'Ephemeral'
 		});
 	}
@@ -56,33 +64,44 @@ export async function runTornFactionCommand(interaction: ChatInputCommandInterac
 	await interaction.deferReply({ flags: 'Ephemeral' });
 	let postedMessages = 0;
 	try {
-		const overview = await getTornFactionOverview(context.storage, interaction.user.id);
-		const embeds = view === 'info' ? buildTornFactionInfoEmbeds(overview) : buildTornFactionMemberEmbeds(overview);
+		let embeds: EmbedBuilder[];
+		if (view === 'unregistered') {
+			const report = await getTornFactionUnregisteredReport(context.storage, interaction.user.id);
+			embeds = buildTornFactionUnregisteredEmbeds(report);
+		} else {
+			const overview = await getTornFactionOverview(context.storage, interaction.user.id);
+			embeds = view === 'info' ? buildTornFactionInfoEmbeds(overview) : buildTornFactionMemberEmbeds(overview);
+		}
+
 		for (const embed of embeds) {
 			await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
 			postedMessages += 1;
 		}
 
-		const content =
-			view === 'info'
-				? `Posted faction information in this channel (${postedMessages} messages).`
-				: `Posted the faction roster in this channel (${postedMessages} messages).`;
+		let content: string;
+		if (view === 'info') {
+			content = `Posted faction information in this channel (${postedMessages} messages).`;
+		} else if (view === 'members') {
+			content = `Posted the faction roster in this channel (${postedMessages} messages).`;
+		} else {
+			content = `Posted the unregistered faction member list in this channel (${postedMessages} messages).`;
+		}
 		return interaction.editReply(content);
 	} catch (error) {
 		if (error instanceof TornApiError) return interaction.editReply(error.message);
 
-		context.logger.error(error, 'Failed to post Torn faction information');
+		context.logger.error(error, 'Failed to post a Torn faction report');
 		return interaction.editReply(
 			postedMessages > 0
-				? 'Could not finish posting the faction information. Some messages may already have been sent.'
-				: 'Could not post the faction information right now. Please try again later.'
+				? 'Could not finish posting the faction report. Some messages may already have been sent.'
+				: 'Could not post the faction report right now. Please try again later.'
 		);
 	}
 }
 
 @ApplyOptions<Command.Options>({
 	name: 'torn',
-	description: 'View Torn profiles or post your faction information.'
+	description: 'View Torn profiles, faction information, and OC registrations.'
 })
 export class TornCommand extends Command {
 	public readonly helpCategory = 'torn' as const;
@@ -104,9 +123,12 @@ export class TornCommand extends Command {
 				.addSubcommandGroup((group) =>
 					group
 						.setName('faction')
-						.setDescription('Post faction information or view the faction roster.')
+						.setDescription('Post faction information, the roster, or the OC registration report.')
 						.addSubcommand((subcommand) => subcommand.setName('info').setDescription(tornSubcommands.factionInfo.description))
 						.addSubcommand((subcommand) => subcommand.setName('members').setDescription(tornSubcommands.factionMembers.description))
+						.addSubcommand((subcommand) =>
+							subcommand.setName('unregistered').setDescription(tornSubcommands.factionUnregistered.description)
+						)
 				)
 		);
 	}
@@ -114,7 +136,7 @@ export class TornCommand extends Command {
 	public async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
 		if (interaction.options.getSubcommandGroup(false) === 'faction') {
 			const view = interaction.options.getSubcommand();
-			if (view === 'info' || view === 'members') {
+			if (view === 'info' || view === 'members' || view === 'unregistered') {
 				return runTornFactionCommand(interaction, this.container, view);
 			}
 		}

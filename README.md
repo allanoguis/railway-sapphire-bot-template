@@ -26,13 +26,14 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 - `/torn profile` for individual Torn profile information
 - `/torn faction info` to post the paired member's faction details in a permitted channel
 - `/torn faction members` to post the paired member's faction roster in that channel
+- `/torn faction unregistered` to post faction members who are not assigned to a recruiting or planning OC
 
 ## ⚙️ Configuration
 
 - Copy `.env.example` to `.env` and set `DISCORD_TOKEN` to your Discord bot token.
 - Optionally adjust `COMMAND_COOLDOWN_DELAY_MS` and `COMMAND_COOLDOWN_LIMIT` to change the default per-user command cooldown.
 - To enable private Torn account pairing and API requests, configure `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Generate the latter with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and keep it backed up securely; losing it makes stored Torn keys unusable.
-- To enable `/torn faction info` and `/torn faction members`, set `TORN_FACTION_CHANNEL_ID` to the Discord channel ID where public faction information may be posted. The bot rejects uses from other channels. Keep this channel appropriate for publicly sharing member status and last-action data.
+- To enable the faction commands, set `TORN_FACTION_CHANNEL_ID` to the Discord channel ID where public faction information may be posted. The bot rejects uses from other channels. Keep this channel appropriate for publicly sharing member status and last-action data.
 - These Torn variables are configured once by the bot operator in the bot host's environment; individual Discord users do not need database credentials or an encryption key.
 
 ## 🚆 Railway deployment
@@ -98,8 +99,8 @@ Commands should validate interaction input and call a feature service rather tha
 - `/torn profile` uses the caller's own paired Torn API key for every request. With no player ID it displays the caller's own profile; with `player-id:<id>` it requests that player's profile using the caller's key. Torn may restrict the returned data based on that key's access level.
 - Each user's key is encrypted with AES-256-GCM in PostgreSQL and is used for `/verify` and that user's profile requests. Pairing requires both `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Keep the encryption key backed up; changing or losing it prevents decrypting paired API keys.
 - The bot requests Torn API v2 `/v2/user/profile` and `/v2/user/faction` for a profile, adding the `id` parameter for a different player. It separately requests `/v2/user/bars`, `/v2/user/cooldowns`, and `/v2/user/battlestats` only for the paired user's own profile. Battle stats are never requested or shown for another player's profile. Torn may reject unavailable endpoints based on the API key's access level. Responses are private to the requesting Discord user.
-- `/torn faction info` and `/torn faction members` use the invoking member's own paired Torn API key and Torn API v2's `/v2/user/faction`, `/v2/faction/basic`, `/v2/faction/members`, `/v2/faction/chain`, `/v2/faction/wars`, and `/v2/faction/territory` endpoints. Those endpoints require a public access key. The commands are available to server members only in the configured `TORN_FACTION_CHANNEL_ID` and post publicly.
-- The faction info post includes faction name, ID, text tag, leader, member count, respect, age, best chain, current chain, territories, wars/pacts with their status or expiry, and a link to the Torn faction page. It does not include tag-image data. The separate roster command includes each member's name, Torn ID, faction position, level, status, and last action, splitting a long roster across messages when needed. Configure a channel where sharing these fields is appropriate.
+- `/torn faction info` and `/torn faction members` use the invoking member's own paired Torn API key and Torn API v2's `/v2/user/faction`, `/v2/faction/basic`, `/v2/faction/members`, `/v2/faction/chain`, `/v2/faction/wars`, and `/v2/faction/territory` endpoints. Those endpoints require a public access key. `/torn faction unregistered` also requests `/v2/faction/crimes?cat=available`; Torn requires a minimal access key with faction API access for that endpoint. The `available` category includes recruiting and planning crimes. All three commands are available to server members only in the configured `TORN_FACTION_CHANNEL_ID` and post publicly.
+- The faction info post includes faction name, ID, text tag, leader, member count, respect, age, best chain, current chain, territories, wars/pacts with their status or expiry, and a link to the Torn faction page. It does not include tag-image data. The roster command includes each member's name, Torn ID, faction position, level, status, and last action, splitting a long roster across messages when needed. The unregistered command lists faction members whose IDs are absent from every slot in the returned available crimes; it uses the v2 slot `user.id` field. This reports OC slot registration only, not Torn account verification or personal item ownership. Configure a channel where sharing these fields is appropriate.
 
 ## 🩺 Health checks
 

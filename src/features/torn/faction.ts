@@ -1,5 +1,5 @@
 import { EmbedBuilder, escapeMarkdown } from 'discord.js';
-import type { TornFactionMember, TornFactionOverview, TornFactionWar } from './service';
+import type { TornFactionMember, TornFactionOverview, TornFactionUnregisteredReport, TornFactionWar } from './service';
 
 function displayText(value: string | undefined, fallback = 'Unavailable'): string {
 	const text = value?.trim();
@@ -153,4 +153,34 @@ export function buildTornFactionMemberEmbeds(overview: TornFactionOverview): Emb
 			.setURL(factionUrl)
 			.setDescription('No members were returned.')
 	];
+}
+
+export function buildTornFactionUnregisteredEmbeds(report: TornFactionUnregisteredReport): EmbedBuilder[] {
+	const factionTitle = `${displayText(report.faction.name, 'Torn faction')}${report.faction.tag ? ` [${displayText(report.faction.tag)}]` : ''}`;
+	const factionUrl = `https://www.torn.com/factions.php?step=profile&ID=${report.faction.id}`;
+	const pageTitle = `OC registration for ${factionTitle}`;
+
+	if (report.members.length === 0) {
+		const description =
+			report.factionMemberCount === 0
+				? 'No faction members were returned.'
+				: `All ${report.factionMemberCount} returned faction members are registered in at least one available OC.`;
+		return [new EmbedBuilder().setColor(0x5865f2).setTitle(pageTitle).setURL(factionUrl).setDescription(description)];
+	}
+
+	const lines = report.members.map((member) => `**${displayText(member.name)}** (ID ${member.id})`);
+	const pages = chunkLines(lines, 3200);
+	const noAvailableCrimes = report.availableCrimeCount === 0;
+	return pages.map((page, index) => {
+		const pageLabel = pages.length > 1 ? ` - ${index + 1}/${pages.length}` : '';
+		const description = [
+			`${report.members.length} faction members are not registered in any available OC.`,
+			noAvailableCrimes ? 'No recruiting or planning OCs are currently available.' : '',
+			page.join('\n')
+		]
+			.filter(Boolean)
+			.join('\n\n');
+
+		return new EmbedBuilder().setColor(0x5865f2).setTitle(`${pageTitle}${pageLabel}`).setURL(factionUrl).setDescription(description);
+	});
 }
