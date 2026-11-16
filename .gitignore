@@ -111,3 +111,5 @@ dist
 
 # TernJS port file
 .tern-port
+AGENTS.md
+sync-vault-notes.ps1

@@ -1,10 +1,15 @@
 # Agent instructions
 
-At the start of every session or task, read the root `progress.md` before planning or changing code. Use it to understand the product direction, decisions, current status, and next steps. Cross-check time-sensitive details (especially Railway configuration and deployment status) against the current repository or available service data before acting.
+At the start of every session or task, load the Obsidian project context before planning or changing code:
 
-After work that changes the project or materially changes its status, update `progress.md` with the outcome, validation performed, deployment status, blockers, and next steps. Keep the project goal and security constraints clear; do not record credentials, API keys, tokens, connection strings, or other secrets.
+1. If the root `progress.md` is missing, reconstruct it from the Obsidian progress snapshot, this file, the repository, and available session history; do not invent current status.
+2. Run `.\sync-vault-notes.ps1` from the repository root to refresh the mirrored guides. If the vault is elsewhere, set `OBSIDIAN_VAULT_PATH` or pass `-VaultPath`.
+3. Read the vault's `Token Discord Bot Project.md`, then `Project Reference/Agent Instructions.md`, `Project Reference/Project Progress Snapshot.md`, and `Project Reference/Project README.md`. Read relevant notes under `Copilot Sessions/` for historical decisions.
+4. Treat the repository's `AGENTS.md`, `README.md`, and root `progress.md` as canonical. The vault copies are read-only mirrors; historical session notes can be incomplete or stale. Verify implementation details in the current repository and time-sensitive Railway facts against current service data.
 
-`progress.md` is intentionally ignored by Git and is local to this checkout. Do not force-add or commit it. If it is missing, reconstruct it from this file, the repository, and available session history before proceeding; note that the progress file is not synchronized to other clones or machines.
+After work that changes the project or materially changes its status, update the root `progress.md` with the outcome, validation performed, deployment status, blockers, and next steps. Update `README.md` or this file when their guidance changes, then run `.\sync-vault-notes.ps1` again so the vault mirrors stay current. Do not edit mirrored guide copies directly. Keep the project goal and security constraints clear; do not record credentials, API keys, tokens, connection strings, or other secrets.
+
+`progress.md` is intentionally ignored by Git and is local to this checkout. Do not force-add or commit it. The sync script mirrors it to the configured Obsidian vault on this machine; it does not synchronize `progress.md` to other clones or machines.
 
 ## Product feature categories
 
