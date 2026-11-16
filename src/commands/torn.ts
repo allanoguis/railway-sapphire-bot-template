@@ -4,7 +4,7 @@ import type { ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds } from '../features/torn/faction';
 import {
 	buildTornFactionOrganizedCrimeEmbeds,
-	buildTornFactionOrganizedCrimeSummaryMessage,
+	buildTornFactionOrganizedCrimeSummaryEmbed,
 	getTornFactionOrganizedCrimes
 } from '../features/torn/faction-oc';
 import { buildTornFactionUnregisteredEmbeds, getTornFactionUnregisteredReport } from '../features/torn/faction-unregistered';
@@ -76,11 +76,11 @@ export async function runTornFactionCommand(
 	let postedMessages = 0;
 	try {
 		let embeds: EmbedBuilder[];
-		let summaryMessage: string | undefined;
+		let summaryEmbed: EmbedBuilder | undefined;
 		if (view === 'organized-crime') {
 			const report = await getTornFactionOrganizedCrimes(context.storage, interaction.user.id);
 			embeds = buildTornFactionOrganizedCrimeEmbeds(report);
-			summaryMessage = buildTornFactionOrganizedCrimeSummaryMessage(report);
+			summaryEmbed = buildTornFactionOrganizedCrimeSummaryEmbed(report);
 		} else if (view === 'unregistered') {
 			const report = await getTornFactionUnregisteredReport(context.storage, interaction.user.id);
 			embeds = buildTornFactionUnregisteredEmbeds(report);
@@ -93,8 +93,8 @@ export async function runTornFactionCommand(
 			await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
 			postedMessages += 1;
 		}
-		if (summaryMessage !== undefined) {
-			await channel.send({ content: summaryMessage, allowedMentions: { parse: [] } });
+		if (summaryEmbed !== undefined) {
+			await channel.send({ embeds: [summaryEmbed], allowedMentions: { parse: [] } });
 			postedMessages += 1;
 		}
 

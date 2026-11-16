@@ -184,17 +184,22 @@ export function buildTornFactionOrganizedCrimeEmbeds(report: TornFactionOrganize
 	);
 }
 
-export function buildTornFactionOrganizedCrimeSummaryMessage(report: TornFactionOrganizedCrimes): string {
+export function buildTornFactionOrganizedCrimeSummaryEmbed(report: TornFactionOrganizedCrimes): EmbedBuilder {
 	const factionName = displayText(report.faction.name, 'Torn faction');
-	return [
-		'📊 **Organized Crime Stats**',
-		`📢 **Recruiting:** ${report.counts.recruiting}`,
-		`🥷 **Ongoing:** ${report.counts.ongoing}`,
-		`✅ **Completed:** ${report.counts.completed}`,
-		'',
-		`🕛**Last updated:** <t:${report.counts.lastUpdatedAt}:F>`,
-		`🔗 **Link:** [${factionName} Organized Crimes Page](${FACTION_CRIMES_URL})`
-	].join('\n');
+	const spacing = '\u2003';
+	return new EmbedBuilder()
+		.setColor(0x5865f2)
+		.setTitle('📊 Organized Crime Stats')
+		.setDescription(
+			[
+				`📢${spacing}**Recruiting:** ${report.counts.recruiting}`,
+				`🥷${spacing}**Ongoing:** ${report.counts.ongoing}`,
+				`✅${spacing}**Completed:** ${report.counts.completed}`,
+				'',
+				`🕛${spacing}**Last updated:** <t:${report.counts.lastUpdatedAt}:F>`,
+				`🔗${spacing}**Link:** [${factionName} Organized Crimes Page](${FACTION_CRIMES_URL})`
+			].join('\n')
+		);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
