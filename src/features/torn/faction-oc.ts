@@ -189,7 +189,7 @@ export function buildTornFactionOrganizedCrimeSummaryEmbed(report: TornFactionOr
 	const spacing = '\u2003';
 	return new EmbedBuilder()
 		.setColor(0x5865f2)
-		.setTitle('📊{spacing}**Organized Crime Stats**')
+		.setTitle(`📊${spacing}**Organized Crime Stats**`)
 		.setDescription(
 			[
 				`📢${spacing}**Recruiting:** ${report.counts.recruiting}`,
