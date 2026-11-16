@@ -39,7 +39,7 @@ const tornSubcommands = {
 	},
 	factionOrganizedCrime: {
 		name: 'faction organized-crime',
-		description: 'Post crimes with category counts, OC details, missing-item highlights, and a faction link.'
+		description: 'Post crimes with player and item names, slot status, pass rates, and category counts.'
 	}
 } as const;
 

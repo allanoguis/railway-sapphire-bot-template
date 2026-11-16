@@ -15,6 +15,7 @@ type TornCrimeCategory = 'available' | 'recruiting' | 'planning' | 'completed';
 
 export interface TornFactionCrimeItemRequirement {
 	id: number;
+	name?: string;
 	isReusable: boolean;
 	isAvailable: boolean;
 }
@@ -28,6 +29,7 @@ export interface TornFactionCrimeItemOutcome {
 
 export interface TornFactionCrimeSlotUser {
 	id: number;
+	name?: string;
 	outcome?: string;
 	outcomeDuration?: number;
 	itemOutcome?: TornFactionCrimeItemOutcome;
@@ -94,13 +96,17 @@ function displayText(value: string | undefined, fallback = 'Unavailable'): strin
 	return text ? escapeMarkdown(text).replace(/\s+/g, ' ').slice(0, 100) : fallback;
 }
 
-function displayOutcome(outcome: string | undefined): string {
+function displayStatus(outcome: string | undefined): string {
 	if (outcome === undefined) return 'Pending';
 	return outcome === 'Successful' ? 'Passed' : `Not passed (${displayText(outcome)})`;
 }
 
 function displayCheckpointPassRate(value: number | undefined): string {
-	return typeof value === 'number' && Number.isFinite(value) ? `${value.toLocaleString()}%` : 'Unavailable';
+	if (typeof value !== 'number' || !Number.isFinite(value)) return 'Unavailable';
+	const percentage = `${value.toLocaleString()}%`;
+	if (value > 70) return `Success: ${percentage}`;
+	if (value < 70) return `Might Fail: ${percentage}`;
+	return percentage;
 }
 
 function chunkLines(lines: string[], maxCharacters = 3500): string[][] {
@@ -132,22 +138,22 @@ function buildCrimeLines(crime: TornFactionOrganizedCrime): string[] {
 		const position = displayText(slot.positionInfo?.label ?? slot.position);
 		const checkpointPassRate = displayCheckpointPassRate(slot.checkpointPassRate);
 		if (!slot.user) {
-			const item = slot.itemRequirement ? ` - Requires Item ID ${slot.itemRequirement.id}` : '';
-			lines.push(`- ${position}: Open${item} | CPR ${checkpointPassRate}`);
+			const itemName = slot.itemRequirement ? displayText(slot.itemRequirement.name, 'Unknown item') : undefined;
+			const item = itemName ? ` - Requires ${itemName}` : '';
+			lines.push(`- ${position}: Open${item} | ${checkpointPassRate}`);
 			continue;
 		}
 
-		const member = `Torn ID ${slot.user.id}`;
-		const outcome = displayOutcome(slot.user.outcome);
+		const member = displayText(slot.user.name, 'Unknown player');
+		const status = displayStatus(slot.user.outcome);
+		const itemName = slot.itemRequirement ? displayText(slot.itemRequirement.name, 'Unknown item') : undefined;
 		if (slot.itemRequirement && !slot.itemRequirement.isAvailable) {
-			lines.push(
-				`**MISSING ITEM** - **${member}** in ${position} needs Item ID ${slot.itemRequirement.id} | CPR ${checkpointPassRate} | Outcome: ${outcome}`
-			);
+			lines.push(`**MISSING ITEM** - **${member}** in ${position} needs **${itemName}** | ${checkpointPassRate} | Status: ${status}`);
 			continue;
 		}
 
-		const item = slot.itemRequirement ? ` | Item ID ${slot.itemRequirement.id} available` : '';
-		lines.push(`- ${position}: ${member}${item} | CPR ${checkpointPassRate} | Outcome: ${outcome}`);
+		const item = itemName ? ` | Item ${itemName} available` : '';
+		lines.push(`- ${position}: ${member}${item} | ${checkpointPassRate} | Status: ${status}`);
 	}
 	return lines;
 }
@@ -352,6 +358,23 @@ function normalizeCrimePage(payload: Record<string, unknown>): TornFactionOrgani
 	return crimes.map(normalizeCrime);
 }
 
+async function requestCrimeItemNames(apiKey: string, itemIds: number[]): Promise<Map<number, string>> {
+	if (itemIds.length === 0) return new Map();
+
+	const url = new URL(`https://api.torn.com/v2/torn/${itemIds.join(',')}/items`);
+	url.searchParams.set('key', apiKey);
+	const payload = await requestTornPayload(url);
+	const { items } = payload;
+	if (!Array.isArray(items)) return invalidCrimeData();
+
+	const itemNames = new Map<number, string>();
+	for (const item of items) {
+		if (!isRecord(item)) return invalidCrimeData();
+		itemNames.set(requiredNumber(item, 'id'), requiredString(item, 'name'));
+	}
+	return itemNames;
+}
+
 function readNextOffset(payload: Record<string, unknown>, offset: number, category: TornCrimeCategory): number | undefined {
 	const { _metadata } = payload;
 	if (_metadata === undefined) return undefined;
@@ -444,8 +467,10 @@ export async function getTornFactionOrganizedCrimes(storage: TornStorage | null,
 		throw error;
 	}
 
-	const leader = normalizeFactionMembers(membersPayload).find((member) => member.position.trim().toLowerCase() === 'leader');
+	const factionMembers = normalizeFactionMembers(membersPayload);
+	const leader = factionMembers.find((member) => member.position.trim().toLowerCase() === 'leader');
 	if (!leader) throw new TornApiError('Torn did not return a faction leader. Please try again later.');
+	const memberNames = new Map(factionMembers.map((member) => [member.id, member.name]));
 
 	const leaderApiKey = await getTornApiKeyForPlayerId(storage, leader.id);
 	if (!leaderApiKey) {
@@ -470,13 +495,25 @@ export async function getTornFactionOrganizedCrimes(storage: TornStorage | null,
 		}
 	}
 
+	const crimes = [...crimesById.values()];
+	const itemIds = [
+		...new Set(crimes.flatMap((crime) => crime.slots?.flatMap((slot) => (slot.itemRequirement ? [slot.itemRequirement.id] : [])) ?? []))
+	];
+	const itemNames = await requestCrimeItemNames(faction.apiKey, itemIds);
+	for (const crime of crimes) {
+		for (const slot of crime.slots ?? []) {
+			if (slot.user) slot.user.name = memberNames.get(slot.user.id);
+			if (slot.itemRequirement) slot.itemRequirement.name = itemNames.get(slot.itemRequirement.id);
+		}
+	}
+
 	const recruiting = await countCrimesInCategory(leaderApiKey, 'recruiting');
 	const ongoing = await countCrimesInCategory(leaderApiKey, 'planning');
 	const completed = await countCrimesInCategory(leaderApiKey, 'completed');
 
 	return {
 		faction: faction.faction,
-		crimes: [...crimesById.values()],
+		crimes,
 		counts: {
 			recruiting,
 			ongoing,

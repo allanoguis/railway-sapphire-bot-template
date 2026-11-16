@@ -27,8 +27,8 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 - `/torn faction info` to post the paired member's faction details in a permitted channel
 - `/torn faction members` to post the paired member's faction roster in that channel
 - `/torn faction unregistered` to post faction members who have not paired a Torn API key with the bot
-- `/torn faction organized-crime` to post active crimes with difficulty/score level, CPR, outcomes, and highlighted missing-item requirements, followed by recruiting, ongoing, and completed counts and the faction-crimes link
-- The summary counts recruiting and planning crimes separately (planning is labeled Ongoing because Torn has no `ongoing` API category); completed counts include successful and failed crimes. The caller's key identifies the faction and its registered Leader, then the Leader's encrypted, registered key (with their consent) is used for crime requests and must have Faction API Access. No personal inventory endpoints are queried.
+- `/torn faction organized-crime` to post active crimes with player and item names, score level, pass-rate assessments, slot status, and highlighted missing items, followed by recruiting, ongoing, and completed counts and the faction-crimes link
+- The summary counts recruiting and planning crimes separately (planning is labeled Ongoing because Torn has no `ongoing` API category); completed counts include successful and failed crimes. The caller's key identifies the faction and roster and fetches item names; the Leader's encrypted, registered key (with their consent) is used only for crime requests and must have Faction API Access. Pass rates above 70% are labeled Success, rates below 70% Might Fail, and all show the percentage. No personal inventory endpoints are queried.
 
 ## ⚙️ Configuration
 
