@@ -50,7 +50,7 @@ export class PairCommand extends Command {
 					},
 					{
 						name: 'Key access level',
-						value: 'Pairing and verification request `basic`; profile requests may also use `profile`, `bars`, `cooldowns`, and `battlestats`.',
+						value: 'Pairing, verification, and every `/torn` command request `basic`; profile requests may also use `profile`, `bars`, `cooldowns`, and `battlestats`.',
 						inline: false
 					}
 				);
