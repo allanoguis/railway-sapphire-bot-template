@@ -175,7 +175,7 @@ export function buildTornFactionOrganizedCrimeEmbeds(report: TornFactionOrganize
 	const pages = chunkLines(lines);
 	return pages.map((page, index) =>
 		new EmbedBuilder()
-			.setColor(page.some((line) => line.includes('**MISSING ITEM**')) ? 0xed4245 : 0x5865f2)
+			.setColor(page.some((line) => line.includes('**MISSING ITEM**')) ? 0xed4245 : 0xE3CD24)
 			.setTitle(
 				`Active organized crimes for ${factionName} (${report.crimes.length})${pages.length > 1 ? ` - ${index + 1}/${pages.length}` : ''}`
 			)
