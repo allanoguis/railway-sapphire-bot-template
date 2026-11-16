@@ -35,7 +35,7 @@ export class PairCommand extends Command {
 					},
 					{
 						name: 'Data sharing',
-						value: 'Your key is never shown to other users. Other paired users can request your profile by player ID and privately view your bars, cooldowns and battle stats using your key. With the faction leader’s consent, the leader’s key may also retrieve organized crimes for a report in the configured faction channel.',
+						value: 'Your key is never shown to other users. Other paired users can request your profile by player ID and privately view your bars, cooldowns and battle stats using your key. With the faction leader’s consent, the leader’s key may also retrieve organized crimes for a report in the configured faction channel. The optional website requires separate, revocable opt-ins for these uses.',
 						inline: false
 					},
 					{

@@ -1,8 +1,13 @@
 import { createServer } from 'node:http';
-import type { Server } from 'node:http';
+import type { RequestListener, Server } from 'node:http';
 
-export function createHealthServer(isReady: () => boolean): Server {
+export function createHealthServer(isReady: () => boolean, website?: RequestListener): Server {
 	return createServer((request, response) => {
+		const path = new URL(request.url ?? '/', 'http://localhost').pathname;
+		if (website && path !== '/healthz' && path !== '/readyz') {
+			website(request, response);
+			return;
+		}
 		response.setHeader('Cache-Control', 'no-store');
 		response.setHeader('Content-Type', 'application/json; charset=utf-8');
 
@@ -13,7 +18,6 @@ export function createHealthServer(isReady: () => boolean): Server {
 			return;
 		}
 
-		const path = new URL(request.url ?? '/', 'http://localhost').pathname;
 		if (path === '/healthz') {
 			response.statusCode = 200;
 			response.end(JSON.stringify({ status: 'ok' }));

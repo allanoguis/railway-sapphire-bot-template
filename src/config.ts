@@ -6,6 +6,45 @@ export interface BotConfig {
 	readonly databaseUrl?: string;
 	readonly tornEncryptionKey?: Buffer;
 	readonly tornFactionChannelId?: string;
+	readonly website?: WebsiteConfig;
+}
+
+export interface WebsiteConfig {
+	readonly origin: string;
+	readonly clientId: string;
+	readonly clientSecret: string;
+}
+
+function getWebsiteConfig(
+	environment: NodeJS.ProcessEnv,
+	databaseUrl: string | undefined,
+	encryptionKey: Buffer | undefined
+): WebsiteConfig | undefined {
+	const origin = environment.WEBSITE_ORIGIN?.trim();
+	const clientId = environment.DISCORD_CLIENT_ID?.trim();
+	const clientSecret = environment.DISCORD_CLIENT_SECRET?.trim();
+	if (!origin && !clientId && !clientSecret) return undefined;
+	if (!origin || !clientId || !clientSecret || !databaseUrl || !encryptionKey) {
+		throw new Error(
+			'Website configuration requires WEBSITE_ORIGIN, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DATABASE_URL and TORN_ENCRYPTION_KEY.'
+		);
+	}
+	let parsed: URL;
+	try {
+		parsed = new URL(origin);
+	} catch {
+		throw new Error('WEBSITE_ORIGIN must be an HTTPS origin or an HTTP localhost origin.');
+	}
+	if (
+		parsed.origin !== origin ||
+		(parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && parsed.hostname === 'localhost')) ||
+		parsed.username ||
+		parsed.password ||
+		!/^\d{17,20}$/.test(clientId)
+	) {
+		throw new Error('WEBSITE_ORIGIN must be an HTTPS origin or an HTTP localhost origin, and DISCORD_CLIENT_ID must be a valid Discord ID.');
+	}
+	return { origin, clientId, clientSecret };
 }
 
 function getPositiveInteger(environment: NodeJS.ProcessEnv, name: string, defaultValue: number): number {
@@ -81,6 +120,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): BotCon
 	const databaseUrl = getDatabaseUrl(environment);
 	const tornEncryptionKey = getTornEncryptionKey(environment);
 	const tornFactionChannelId = getTornFactionChannelId(environment);
+	const website = getWebsiteConfig(environment, databaseUrl, tornEncryptionKey);
 
 	return {
 		discordToken,
@@ -89,7 +129,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): BotCon
 		...(healthPort === undefined ? {} : { healthPort }),
 		...(databaseUrl === undefined ? {} : { databaseUrl }),
 		...(tornEncryptionKey === undefined ? {} : { tornEncryptionKey }),
-		...(tornFactionChannelId === undefined ? {} : { tornFactionChannelId })
+		...(tornFactionChannelId === undefined ? {} : { tornFactionChannelId }),
+		...(website === undefined ? {} : { website })
 	};
 }
 

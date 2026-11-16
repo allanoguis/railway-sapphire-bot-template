@@ -29,6 +29,7 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 - `/torn faction unregistered` to post faction members who have not paired a Torn API key with the bot
 - `/torn faction organized-crime` to post active crimes with player and item names, score level, pass-rate assessments, slot status, and highlighted missing items, followed by recruiting, ongoing, and completed counts and the faction-crimes link
 - The summary counts recruiting and planning crimes separately (planning is labeled Ongoing because Torn has no `ongoing` API category); completed counts include successful and failed crimes. The caller's key identifies the faction and roster and fetches item names; the Leader's encrypted, registered key (with their consent) is used only for crime requests and must have Faction API Access. Pass rates above 70% are labeled Success, rates below 70% Might Fail, and all show the percentage. No personal inventory endpoints are queried.
+- Optional React dashboard with Discord sign-in, pairing and consent controls, profile lookup, and view-only faction reports.
 
 ## ⚙️ Configuration
 
@@ -36,6 +37,7 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 - Optionally adjust `COMMAND_COOLDOWN_DELAY_MS` and `COMMAND_COOLDOWN_LIMIT` to change the default per-user command cooldown.
 - To enable private Torn account pairing and API requests, configure `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Generate the latter with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and keep it backed up securely; losing it makes stored Torn keys unusable.
 - To enable the faction commands, set `TORN_FACTION_CHANNEL_ID` to the Discord channel ID where public faction information may be posted. The bot rejects uses from other channels. Keep this channel appropriate for publicly sharing member status and last-action data.
+- To enable the website, also set `WEBSITE_ORIGIN` (for example `https://dashboard.example.com`, without a trailing slash), `DISCORD_CLIENT_ID`, and `DISCORD_CLIENT_SECRET`. Register the exact redirect URI `<WEBSITE_ORIGIN>/auth/discord/callback` in the Discord application. All three are required together, as are `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Only `http://localhost` origins are accepted for non-HTTPS development.
 - These Torn variables are configured once by the bot operator in the bot host's environment; individual Discord users do not need database credentials or an encryption key.
 
 ## 🚆 Railway deployment
@@ -44,6 +46,7 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 - In the bot service's Variables, set `DISCORD_TOKEN` and set `DATABASE_URL` to a Railway service reference such as `${{Postgres.DATABASE_URL}}` (replace `Postgres` with the exact database service name). The bot only needs `DATABASE_URL`; do not copy the database's individual `PG*` or `POSTGRES_*` variables.
 - Use `pnpm install --frozen-lockfile && pnpm build` as the build command and `pnpm start` as the start command. The package pins pnpm to match the existing lockfile.
 - Railway supplies `PORT`; the health server listens on it. Set the deployment health check path to `/readyz`.
+- The website uses the same service and port as the bot; enable Railway public networking and configure its HTTPS origin. Railway terminates TLS at the edge; the app does not trust forwarded headers for identity or authorization. Run one replica: pending Discord login state is held in that process, so a callback routed to a different replica fails safely. Existing server-side sessions are stored in PostgreSQL.
 - On its first successful startup, the bot creates the minimal `verified_users` table automatically. No manual schema setup or seed data is needed. The database user must have permission to create tables in the target schema. Check the deployment logs for `PostgreSQL storage initialized` and `Ready as ...`.
 - The Postgres internal hostname is only reachable inside the Railway environment. A local connection using that URL will fail to resolve; do not enable a public TCP proxy just for bot-to-database traffic.
 - Keep appropriate PostgreSQL backups enabled. Each bot process uses a PostgreSQL connection pool (up to 10 connections by default), so account for all replicas when scaling.
@@ -105,9 +108,17 @@ Commands should validate interaction input and call a feature service rather tha
 - `/torn faction info`, `/torn faction members`, and `/torn faction unregistered` use the invoking member's own paired Torn API key and Torn API v2's `/v2/user/faction`, `/v2/faction/basic`, and `/v2/faction/members` endpoints. The info and roster commands also use `/v2/faction/chain`, `/v2/faction/wars`, and `/v2/faction/territory`. These endpoints require a public access key. The unregistered command compares the returned Torn player IDs with the paired-account player IDs in PostgreSQL; it does not read or return Discord IDs or API key values. All three commands are available to server members only in the configured `TORN_FACTION_CHANNEL_ID` and post publicly.
 - The faction info post includes faction name, ID, text tag, leader, member count, respect, age, best chain, current chain, territories, wars/pacts with their status or expiry, and a link to the Torn faction page. It does not include tag-image data. The roster command includes each member's name, Torn ID, faction position, level, status, and last action, splitting a long roster across messages when needed. The unregistered command lists faction members whose Torn IDs do not match an account paired with the bot; it does not check OC slot registration or personal item ownership. Configure a channel where sharing these fields is appropriate.
 
+## 🌐 Torn dashboard
+
+The optional dashboard is built with the bot and served from the same origin. Discord OAuth uses the `identify` scope, state and S256 PKCE. Sessions expire after 24 hours, use secure HttpOnly cookies, and can be revoked with Sign out; sensitive requests require the session, exact origin and CSRF token. Use HTTPS for real keys. The website sends keys only to the same-origin server, never stores them in browser storage, and clears the input on submission. Its reports are displayed privately in the browser and do not post to Discord. Data is fetched on request, not automatically refreshed.
+
+Each faction request checks the signed-in user's current server membership and effective permission to view `TORN_FACTION_CHANNEL_ID`; unavailable Discord data or a denied permission fails closed. Configure a standard server text or announcement channel. The signed-in user must also have a paired key.
+
+Other registered players' private profiles and organized-crime requests using the faction Leader's key each require the relevant key owner's separate website opt-in. The owner can revoke either choice in the dashboard. Unpairing deletes these choices, and replacing a key (including through Discord) clears them; re-pairing requires fresh opt-in even for the same Torn account. Discord command behavior and its existing consent arrangements are unchanged. The database user needs permission to create the website session and consent tables, index, function, and trigger.
+
 ## 🩺 Health checks
 
-The built-in HTTP server listens on `PORT` (default `3000`). Configure Railway's health check path as `/readyz`; it returns `200` after the Discord client is ready and `503` before then. `/healthz` reports process liveness, and unknown paths return `404`.
+The built-in HTTP server listens on `PORT` (default `3000`). Configure Railway's health check path as `/readyz`; it returns `200` after the Discord client is ready and `503` before then. `/healthz` reports process liveness. When the website is disabled, unknown paths return `404`; when enabled, the server also serves the dashboard and its authenticated API.
 
 ## 💁‍♀️ How to use
 

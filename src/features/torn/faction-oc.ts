@@ -7,7 +7,7 @@ import {
 	requestTornPayload,
 	TornApiError
 } from './service';
-import type { TornFactionApiContext, TornStorage } from './service';
+import type { CredentialAccessCheck, TornFactionApiContext, TornStorage } from './service';
 
 const CRIME_PAGE_SIZE = 20;
 const FACTION_CRIMES_URL = 'https://www.torn.com/factions.php?step=your&type=1#faction-crimes';
@@ -164,10 +164,10 @@ export function buildTornFactionOrganizedCrimeEmbeds(report: TornFactionOrganize
 	if (report.crimes.length === 0) {
 		return [
 			new EmbedBuilder()
-				.setColor(0xE3CD24)
-				.setTitle(`Active organized crimes for ${factionName}`)
+				.setColor(0xe3cd24)
+				.setTitle(`**${factionName}** Active Organized Crimes`)
 				.setURL(factionUrl)
-				.setDescription('No recruiting or planning organized crimes were found.')
+				.setDescription('No recruiting or planning organized crimes at the moment.')
 		];
 	}
 
@@ -175,7 +175,7 @@ export function buildTornFactionOrganizedCrimeEmbeds(report: TornFactionOrganize
 	const pages = chunkLines(lines);
 	return pages.map((page, index) =>
 		new EmbedBuilder()
-			.setColor(page.some((line) => line.includes('**MISSING ITEM**')) ? 0xed4245 : 0xE3CD24)
+			.setColor(page.some((line) => line.includes('**MISSING ITEM**')) ? 0xed4245 : 0xe3cd24)
 			.setTitle(
 				`Active organized crimes for ${factionName} (${report.crimes.length})${pages.length > 1 ? ` - ${index + 1}/${pages.length}` : ''}`
 			)
@@ -188,16 +188,16 @@ export function buildTornFactionOrganizedCrimeSummaryEmbed(report: TornFactionOr
 	const factionName = displayText(report.faction.name, 'Torn faction');
 	const spacing = '\u2003';
 	return new EmbedBuilder()
-		.setColor(0xE3CD24)
+		.setColor(0xe3cd24)
 		.setTitle(`📊${spacing}**Organized Crime Stats**`)
 		.setDescription(
 			[
-				`📢${spacing}**Recruiting:** ${report.counts.recruiting}`,
-				`🥷${spacing}**Ongoing:** ${report.counts.ongoing}`,
-				`✅${spacing}**Completed:** ${report.counts.completed}`,
+				`📢${spacing}Recruiting:${spacing}**${report.counts.recruiting}**`,
+				`🥷${spacing}Ongoing:${spacing}**${report.counts.ongoing}**`,
+				`✅${spacing}Completed:${spacing}**${report.counts.completed}**`,
 				'',
-				`🕛${spacing}**Last updated:** <t:${report.counts.lastUpdatedAt}:F>`,
-				`🔗${spacing}**Link:** [${factionName} Organized Crimes Page](${FACTION_CRIMES_URL})`
+				`🕛${spacing}Last updated:${spacing}**<t:${report.counts.lastUpdatedAt}:F>**`,
+				`🔗${spacing}**Link:${spacing}**[${factionName} Organized Crimes Page](${FACTION_CRIMES_URL})**`
 			].join('\n')
 		);
 }
@@ -458,7 +458,11 @@ async function countCrimesInCategory(apiKey: string, category: Exclude<TornCrime
 	return count;
 }
 
-export async function getTornFactionOrganizedCrimes(storage: TornStorage | null, discordUserId: string): Promise<TornFactionOrganizedCrimes> {
+export async function getTornFactionOrganizedCrimes(
+	storage: TornStorage | null,
+	discordUserId: string,
+	checkLeaderAccess?: CredentialAccessCheck
+): Promise<TornFactionOrganizedCrimes> {
 	if (storage === null) {
 		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
 	}
@@ -478,7 +482,7 @@ export async function getTornFactionOrganizedCrimes(storage: TornStorage | null,
 	if (!leader) throw new TornApiError('Torn did not return a faction leader. Please try again later.');
 	const memberNames = new Map(factionMembers.map((member) => [member.id, member.name]));
 
-	const leaderApiKey = await getTornApiKeyForPlayerId(storage, leader.id);
+	const leaderApiKey = await getTornApiKeyForPlayerId(storage, leader.id, checkLeaderAccess);
 	if (!leaderApiKey) {
 		throw new TornApiError('The faction leader must pair a Torn API key with the bot before crimes can be listed.');
 	}

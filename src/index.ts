@@ -4,17 +4,21 @@ import { Logger } from '@sapphire/plugin-logger';
 import '@sapphire/plugin-logger/register';
 import { GatewayIntentBits } from 'discord.js';
 import { Pool } from 'pg';
-import type { Server } from 'node:http';
+import type { RequestListener, Server } from 'node:http';
 import { loadConfig } from './config';
 import { closeHealthServer, createHealthServer, listenHealthServer } from './lib/health';
 import { PostgresStorage } from './lib/postgres-storage';
 import { setBotPresence } from './lib/presence';
 import { registerShutdownHandlers } from './lib/shutdown';
+import { WebAuth } from './web/auth';
+import { createDashboardServer } from './web/server';
+import { WebsiteStorage } from './web/storage';
 
 const logger = new Logger({ level: LogLevel.Debug });
 let client: SapphireClient | undefined;
 let healthServer: Server | undefined;
 let storage: PostgresStorage | undefined;
+let sessionCleanup: ReturnType<typeof setInterval> | undefined;
 
 const main = async () => {
 	try {
@@ -31,7 +35,15 @@ const main = async () => {
 				limit: config.commandCooldownLimit
 			}
 		});
-		const server = createHealthServer(() => client?.isReady() ?? false);
+		let websiteHandler: RequestListener | undefined;
+		const serveWhenReady: RequestListener = (request, response) => {
+			if (websiteHandler) websiteHandler(request, response);
+			else {
+				response.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+				response.end(JSON.stringify({ error: 'Website is starting. Please try again later.' }));
+			}
+		};
+		const server = createHealthServer(() => client?.isReady() ?? false, config.website ? serveWhenReady : undefined);
 		healthServer = server;
 		server.on('error', (error) => {
 			if (client) setBotPresence(client, true);
@@ -40,6 +52,7 @@ const main = async () => {
 		await listenHealthServer(server, config.healthPort ?? 3000);
 		registerShutdownHandlers(client, logger, async () => {
 			const errors: unknown[] = [];
+			if (sessionCleanup) clearInterval(sessionCleanup);
 			try {
 				await closeHealthServer(server);
 			} catch (error) {
@@ -66,6 +79,26 @@ const main = async () => {
 				logger.warn('Legacy bot_settings table retained because it contains data outside per-user Torn credentials');
 			}
 			logger.info('PostgreSQL storage initialized');
+			if (config.website) {
+				const websiteStorage = new WebsiteStorage(pool);
+				await websiteStorage.initialize();
+				const auth = new WebAuth({ enabled: true, ...config.website }, websiteStorage);
+				websiteHandler = createDashboardServer({
+					auth,
+					websiteStorage,
+					storage,
+					client,
+					origin: config.website.origin,
+					factionChannelId: config.tornFactionChannelId,
+					logError: (message) => logger.error(message)
+				});
+				const cleanupSessions = () => {
+					void websiteStorage.cleanupExpiredSessions().catch(() => logger.error('Failed to clean up expired website sessions.'));
+				};
+				sessionCleanup = setInterval(cleanupSessions, 60 * 60 * 1000);
+				sessionCleanup.unref();
+				logger.info('Website dashboard initialized');
+			}
 		} else {
 			logger.warn('DATABASE_URL is not configured; persistent storage is disabled.');
 		}

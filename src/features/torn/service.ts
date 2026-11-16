@@ -3,6 +3,7 @@ import type { JsonValue, PostgresStorage } from '../../lib/postgres-storage';
 import { getTornEncryptionKey } from '../../config';
 
 export type TornStorage = Pick<PostgresStorage, 'getTornApi' | 'getTornApiByPlayerId' | 'setTornApi' | 'deleteTornApi'>;
+export type CredentialAccessCheck = (discordId: string, credential: JsonValue) => Promise<void>;
 
 interface TornBar {
 	current?: number;
@@ -545,7 +546,11 @@ async function getVerifiedCaller(storage: TornStorage | null, discordUserId: str
 	return { apiKey, playerId };
 }
 
-export async function getTornApiKeyForPlayerId(storage: TornStorage, playerId: number): Promise<string | undefined> {
+export async function getTornApiKeyForPlayerId(
+	storage: TornStorage,
+	playerId: number,
+	checkAccess?: CredentialAccessCheck
+): Promise<string | undefined> {
 	const stored = await storage.getTornApiByPlayerId(playerId);
 	if (!stored) return undefined;
 
@@ -555,6 +560,7 @@ export async function getTornApiKeyForPlayerId(storage: TornStorage, playerId: n
 		throw new TornApiError('Stored Torn account data does not match the requested player.');
 	}
 
+	await checkAccess?.(stored.discordId, stored.tornApi);
 	const encryptionKey = getTornEncryptionKey(process.env);
 	if (!encryptionKey) {
 		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
@@ -616,7 +622,8 @@ export async function unpairTornAccount(storage: TornStorage, discordUserId: str
 export async function getTornProfile(
 	storage: TornStorage | null,
 	discordUserId: string,
-	playerId?: number
+	playerId?: number,
+	checkOtherPlayerAccess?: CredentialAccessCheck
 ): Promise<{ profile: TornProfile; isLinkedProfile: boolean }> {
 	if (storage === null) {
 		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
@@ -628,7 +635,7 @@ export async function getTornProfile(
 	if (playerId !== undefined && caller.playerId !== playerId) {
 		let playerKey: string | undefined;
 		try {
-			playerKey = await getTornApiKeyForPlayerId(storage, playerId);
+			playerKey = await getTornApiKeyForPlayerId(storage, playerId, checkOtherPlayerAccess);
 		} catch (error) {
 			if (error instanceof TornApiError) {
 				throw new TornApiError(`Could not load the requested player’s saved Torn API key: ${error.message}`, error.code);
