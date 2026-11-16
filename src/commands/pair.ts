@@ -35,7 +35,7 @@ export class PairCommand extends Command {
 					},
 					{
 						name: 'Data sharing',
-						value: 'The key is not shared. Bot operators administer the service; profile and verification replies are private to you.',
+						value: 'Your key is never shown to other users. With the faction leader’s consent, the bot may use the leader’s encrypted key only to retrieve organized crimes; the report is posted in the configured faction channel. Other Torn requests use the requesting user’s key.',
 						inline: false
 					},
 					{

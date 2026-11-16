@@ -35,7 +35,7 @@ const tornSubcommands = {
 	},
 	factionOrganizedCrime: {
 		name: 'faction organized-crime',
-		description: 'Post active faction crimes with score, CPR, outcomes, and missing-item highlights.'
+		description: "Post active crimes using the leader's key, with score, CPR, and missing-item highlights."
 	}
 } as const;
 
@@ -100,14 +100,7 @@ export async function runTornFactionCommand(
 		}
 		return interaction.editReply(content);
 	} catch (error) {
-		if (error instanceof TornApiError) {
-			if (view === 'organized-crime' && (error.code === 7 || error.code === 16)) {
-				return interaction.editReply(
-					'Torn requires the paired API key to have Faction API Access for organized crimes. Enable that permission or pair a key that has it, then retry.'
-				);
-			}
-			return interaction.editReply(error.message);
-		}
+		if (error instanceof TornApiError) return interaction.editReply(error.message);
 
 		context.logger.error(error, 'Failed to post a Torn faction report');
 		return interaction.editReply(

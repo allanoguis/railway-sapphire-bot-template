@@ -10,6 +10,11 @@ interface RegisteredPlayerIdRow extends QueryResultRow {
 	player_id: string;
 }
 
+interface RegisteredTornApiRow extends QueryResultRow {
+	discord_id: string;
+	torn_api: JsonValue;
+}
+
 export class PostgresStorage {
 	private closed = false;
 
@@ -61,6 +66,23 @@ export class PostgresStorage {
 	public async getTornApi(discordId: string): Promise<JsonValue | undefined> {
 		const result = await this.pool.query<VerifiedUserRow>('SELECT torn_api FROM verified_users WHERE discord_id = $1', [discordId]);
 		return result.rows[0]?.torn_api;
+	}
+
+	public async getTornApiByPlayerId(playerId: number): Promise<{ discordId: string; tornApi: JsonValue } | undefined> {
+		if (!Number.isSafeInteger(playerId) || playerId <= 0) {
+			throw new RangeError('Torn player ID must be a positive safe integer.');
+		}
+
+		const result = await this.pool.query<RegisteredTornApiRow>(
+			`SELECT discord_id, torn_api
+			FROM verified_users
+			WHERE torn_api ->> 'playerId' = $1
+			ORDER BY updated_at DESC
+			LIMIT 1`,
+			[String(playerId)]
+		);
+		const row = result.rows[0];
+		return row ? { discordId: row.discord_id, tornApi: row.torn_api } : undefined;
 	}
 
 	public async getRegisteredTornPlayerIds(playerIds: readonly number[]): Promise<Set<number>> {

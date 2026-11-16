@@ -1,5 +1,12 @@
 import { EmbedBuilder, escapeMarkdown } from 'discord.js';
-import { getTornFactionApiContext, requestTornPayload, TornApiError } from './service';
+import {
+	getTornApiKeyForPlayerId,
+	getTornFactionApiContext,
+	normalizeFactionMembers,
+	requestFactionEndpoint,
+	requestTornPayload,
+	TornApiError
+} from './service';
 import type { TornFactionApiContext, TornStorage } from './service';
 
 const CRIME_PAGE_SIZE = 20;
@@ -366,12 +373,44 @@ async function requestCrimePage(apiKey: string, offset: number): Promise<Record<
 }
 
 export async function getTornFactionOrganizedCrimes(storage: TornStorage | null, discordUserId: string): Promise<TornFactionOrganizedCrimes> {
+	if (storage === null) {
+		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
+	}
 	const faction = await getTornFactionApiContext(storage, discordUserId);
+	let membersPayload: Record<string, unknown>;
+	try {
+		membersPayload = await requestFactionEndpoint(faction.apiKey, 'members');
+	} catch (error) {
+		if (error instanceof TornApiError && (error.code === 7 || error.code === 16)) {
+			throw new TornApiError('Your paired API key needs faction access to identify the registered faction leader.', error.code);
+		}
+		throw error;
+	}
+
+	const leader = normalizeFactionMembers(membersPayload).find((member) => member.position.trim().toLowerCase() === 'leader');
+	if (!leader) throw new TornApiError('Torn did not return a faction leader. Please try again later.');
+
+	const leaderApiKey = await getTornApiKeyForPlayerId(storage, leader.id);
+	if (!leaderApiKey) {
+		throw new TornApiError('The faction leader must pair a Torn API key with the bot before crimes can be listed.');
+	}
+
 	const crimesById = new Map<number, TornFactionOrganizedCrime>();
 	let offset = 0;
 
 	while (true) {
-		const payload = await requestCrimePage(faction.apiKey, offset);
+		let payload: Record<string, unknown>;
+		try {
+			payload = await requestCrimePage(leaderApiKey, offset);
+		} catch (error) {
+			if (error instanceof TornApiError && (error.code === 7 || error.code === 16)) {
+				throw new TornApiError(
+					"The registered faction leader's API key needs Faction API Access. Ask the leader to enable it or pair a key that has it.",
+					error.code
+				);
+			}
+			throw error;
+		}
 		const crimes = normalizeCrimePage(payload);
 		for (const crime of crimes) crimesById.set(crime.id, crime);
 

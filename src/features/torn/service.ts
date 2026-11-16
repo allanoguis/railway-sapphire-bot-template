@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import type { JsonValue, PostgresStorage } from '../../lib/postgres-storage';
 import { getTornEncryptionKey } from '../../config';
 
-export type TornStorage = Pick<PostgresStorage, 'getTornApi' | 'setTornApi' | 'deleteTornApi'>;
+export type TornStorage = Pick<PostgresStorage, 'getTornApi' | 'getTornApiByPlayerId' | 'setTornApi' | 'deleteTornApi'>;
 
 interface TornBar {
 	current?: number;
@@ -512,6 +512,23 @@ function withoutBattleStats(profile: TornProfile): TornProfile {
 async function loadCredential(storage: TornStorage, discordUserId: string): Promise<StoredCredential | undefined> {
 	const value = await storage.getTornApi(discordUserId);
 	return readStoredCredential(value);
+}
+
+export async function getTornApiKeyForPlayerId(storage: TornStorage, playerId: number): Promise<string | undefined> {
+	const stored = await storage.getTornApiByPlayerId(playerId);
+	if (!stored) return undefined;
+
+	const credential = readStoredCredential(stored.tornApi);
+	if (!credential) return undefined;
+	if (credential.playerId !== playerId) {
+		throw new TornApiError('Stored Torn account data does not match the faction leader.');
+	}
+
+	const encryptionKey = getTornEncryptionKey(process.env);
+	if (!encryptionKey) {
+		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
+	}
+	return decryptApiKey(credential, encryptionKey, stored.discordId);
 }
 
 export function hasTornPairingConfiguration(): boolean {
