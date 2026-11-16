@@ -178,20 +178,14 @@ export function buildTornFactionOrganizedCrimeEmbeds(report: TornFactionOrganize
 	);
 }
 
-export function buildTornFactionOrganizedCrimeSummaryMessage(report: TornFactionOrganizedCrimes, now = Date.now()): string {
-	const elapsedSeconds = Math.max(0, Math.floor(now / 1000) - report.counts.lastUpdatedAt);
-	const hours = Math.floor(elapsedSeconds / 3600);
-	const minutes = Math.floor((elapsedSeconds % 3600) / 60);
-	const seconds = elapsedSeconds % 60;
-	const formatPart = (value: number) => String(value).padStart(2, '0');
-
+export function buildTornFactionOrganizedCrimeSummaryMessage(report: TornFactionOrganizedCrimes): string {
 	return [
 		'Faction Organized crime links:',
 		`Recruiting: ${report.counts.recruiting}`,
 		`Ongoing: ${report.counts.ongoing}`,
 		`Completed: ${report.counts.completed}`,
 		'',
-		`Last updated: ${formatPart(hours)} hours | ${formatPart(minutes)} minutes | ${formatPart(seconds)} seconds ago`,
+		`Last updated: ${new Date(report.counts.lastUpdatedAt).toISOString()}`,
 		`Link: ${FACTION_CRIMES_URL}`
 	].join('\n');
 }
@@ -487,7 +481,7 @@ export async function getTornFactionOrganizedCrimes(storage: TornStorage | null,
 			recruiting,
 			ongoing,
 			completed,
-			lastUpdatedAt: Math.floor(Date.now() / 1000)
+			lastUpdatedAt: Date.now()
 		}
 	};
 }
