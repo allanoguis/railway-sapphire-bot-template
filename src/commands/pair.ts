@@ -35,12 +35,12 @@ export class PairCommand extends Command {
 					},
 					{
 						name: 'Data sharing',
-						value: 'Your key is never shown to other users. With the faction leader’s consent, the bot may use the leader’s encrypted key only to retrieve organized crimes; the report is posted in the configured faction channel. Other Torn requests use the requesting user’s key.',
+						value: 'Your key is never shown to other users. Other paired users can request your profile by player ID and privately view your bars, cooldowns and battle stats using your key. With the faction leader’s consent, the leader’s key may also retrieve organized crimes for a report in the configured faction channel.',
 						inline: false
 					},
 					{
 						name: 'Purpose of use',
-						value: 'The key retrieves your own profile with `/torn profile` and is revalidated with `/verify`.',
+						value: 'The key retrieves your profile for `/torn profile` requests and is revalidated with `/verify`.',
 						inline: false
 					},
 					{

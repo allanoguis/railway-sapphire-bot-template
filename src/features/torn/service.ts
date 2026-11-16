@@ -178,11 +178,20 @@ function getApiErrorMessage(code: number | undefined): string {
 			return 'That Torn player ID was not found.';
 		case 7:
 			return 'Torn does not allow this key to access the requested data.';
+		case 8:
+			return 'Torn has temporarily blocked requests from this bot. Please try again later.';
+		case 9:
+			return 'The Torn API is currently disabled. Please try again later.';
 		case 10:
 			return 'This Torn API key cannot be used while its owner is in federal jail.';
+		case 12:
+			return 'Torn could not read this API key. Please try again later.';
 		case 13:
+			return 'This Torn API key is temporarily disabled because its owner has been inactive.';
+		case 14:
+			return 'The Torn API daily read limit has been reached. Please try again later.';
 		case 18:
-			return 'This Torn API key is disabled. Please check it in Torn and pair a valid key with `/pair`.';
+			return 'This Torn API key has been paused by its owner.';
 		case 16:
 			return 'This Torn API key does not have sufficient access for the requested data.';
 		default:
@@ -241,6 +250,8 @@ export async function requestTornPayload(url: URL): Promise<Record<string, unkno
 	} catch {
 		throw new TornApiError('Could not connect to the Torn API. Please try again later.');
 	}
+
+	if (response.status === 429) throw new TornApiError(getApiErrorMessage(5), 5);
 
 	let payload: unknown;
 	try {
@@ -519,9 +530,9 @@ export async function getTornApiKeyForPlayerId(storage: TornStorage, playerId: n
 	if (!stored) return undefined;
 
 	const credential = readStoredCredential(stored.tornApi);
-	if (!credential) return undefined;
+	if (!credential) throw new TornApiError('Stored Torn account data is invalid. The account owner must pair again.');
 	if (credential.playerId !== playerId) {
-		throw new TornApiError('Stored Torn account data does not match the faction leader.');
+		throw new TornApiError('Stored Torn account data does not match the requested player.');
 	}
 
 	const encryptionKey = getTornEncryptionKey(process.env);
@@ -601,36 +612,63 @@ export async function getTornProfile(
 		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
 	}
 
-	const apiKey = decryptApiKey(credential, encryptionKey, discordUserId);
+	let apiKey = decryptApiKey(credential, encryptionKey, discordUserId);
+	let usingOtherPlayerKey = false;
 	if (playerId !== undefined && credential.playerId !== playerId) {
-		const [profile, faction] = await Promise.all([requestProfile(apiKey, playerId), requestFaction(apiKey, playerId)]);
-		return { profile: withoutBattleStats({ ...profile, faction }), isLinkedProfile: false };
+		let playerKey: string | undefined;
+		try {
+			playerKey = await getTornApiKeyForPlayerId(storage, playerId);
+		} catch (error) {
+			if (error instanceof TornApiError) {
+				throw new TornApiError(`Could not load the requested player’s saved Torn API key: ${error.message}`, error.code);
+			}
+			throw error;
+		}
+		if (playerKey === undefined) {
+			const [profile, faction] = await Promise.all([requestProfile(apiKey, playerId), requestFaction(apiKey, playerId)]);
+			return { profile: withoutBattleStats({ ...profile, faction }), isLinkedProfile: false };
+		}
+		apiKey = playerKey;
+		usingOtherPlayerKey = true;
 	}
 
-	const [profile, faction, barsPayload, cooldownsPayload, battleStatsPayload] = await Promise.all([
-		requestProfile(apiKey),
-		requestFaction(apiKey),
-		requestSelection(apiKey, 'bars'),
-		requestSelection(apiKey, 'cooldowns'),
-		requestSelection(apiKey, 'battlestats')
-	]);
-	const bars = readSelection(barsPayload, 'bars');
-	const cooldowns = readCooldowns(readSelection(cooldownsPayload, 'cooldowns'));
-	const battlestats = readBattleStats(readSelection(battleStatsPayload, 'battlestats'));
+	try {
+		const profile = await requestProfile(apiKey);
+		if (profile.player_id !== (usingOtherPlayerKey ? playerId : credential.playerId)) {
+			throw new TornApiError('The saved Torn API key no longer matches the paired account. The account owner must pair again.');
+		}
+		const [faction, barsPayload, cooldownsPayload, battleStatsPayload] = await Promise.all([
+			requestFaction(apiKey),
+			requestSelection(apiKey, 'bars'),
+			requestSelection(apiKey, 'cooldowns'),
+			requestSelection(apiKey, 'battlestats')
+		]);
+		const bars = readSelection(barsPayload, 'bars');
+		const cooldowns = readCooldowns(readSelection(cooldownsPayload, 'cooldowns'));
+		const battlestats = readBattleStats(readSelection(battleStatsPayload, 'battlestats'));
 
-	return {
-		profile: {
-			...profile,
-			faction,
-			energy: readBar(bars.energy),
-			nerve: readBar(bars.nerve),
-			happy: readBar(bars.happy),
-			life: readBar(bars.life),
-			cooldowns,
-			battlestats
-		},
-		isLinkedProfile: true
-	};
+		return {
+			profile: {
+				...profile,
+				faction,
+				energy: readBar(bars.energy),
+				nerve: readBar(bars.nerve),
+				happy: readBar(bars.happy),
+				life: readBar(bars.life),
+				cooldowns,
+				battlestats
+			},
+			isLinkedProfile: true
+		};
+	} catch (error) {
+		if (usingOtherPlayerKey && error instanceof TornApiError) {
+			if (error.code === 1 || error.code === 2) {
+				throw new TornApiError('The requested player’s saved Torn API key was rejected. Ask the owner to pair a valid key.', error.code);
+			}
+			throw new TornApiError(`Could not use the requested player’s saved Torn API key: ${error.message}`, error.code);
+		}
+		throw error;
+	}
 }
 
 export async function getTornFactionOverview(storage: TornStorage | null, discordUserId: string): Promise<TornFactionOverview> {
