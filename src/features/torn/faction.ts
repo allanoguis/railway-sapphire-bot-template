@@ -1,5 +1,5 @@
 import { EmbedBuilder, escapeMarkdown } from 'discord.js';
-import type { TornFactionOverview, TornFactionMember, TornFactionWar } from './service';
+import type { TornFactionMember, TornFactionOverview, TornFactionWar } from './service';
 
 function displayText(value: string | undefined, fallback = 'Unavailable'): string {
 	const text = value?.trim();
@@ -75,80 +75,82 @@ function buildRosterLine(member: TornFactionMember): string {
 	}\nStatus: ${displayMemberStatus(member)} | Last action: ${displayMemberLastAction(member)}`;
 }
 
-export function buildTornFactionEmbeds(overview: TornFactionOverview): EmbedBuilder[] {
+export function buildTornFactionInfoEmbeds(overview: TornFactionOverview): EmbedBuilder[] {
 	const { basic } = overview;
 	const leader = overview.members.find((member) => member.id === basic.leader_id);
 	const title = `${displayText(basic.name, 'Torn faction')}${basic.tag ? ` [${displayText(basic.tag)}]` : ''}`;
-	const chain = displayChain(overview.chain);
-	const summary = new EmbedBuilder()
-		.setColor(0x5865f2)
-		.setTitle(title)
-		.setURL(`https://www.torn.com/factions.php?step=profile&ID=${basic.id}`)
-		.setDescription(`Faction ID: ${basic.id}\nTag image: ${displayText(basic.tag_image)}`)
-		.addFields(
-			{
-				name: 'Faction details',
-				value: [
-					`Leader: ${leader ? `${displayText(leader.name)} (ID ${leader.id})` : `Unavailable (ID ${basic.leader_id})`}`,
-					`Members: ${basic.members.toLocaleString()}`,
-					`Respect: ${basic.respect.toLocaleString()}`,
-					`Age: ${basic.days_old.toLocaleString()} days`,
-					`Best chain: ${basic.best_chain.toLocaleString()}`
-				].join('\n'),
-				inline: true
-			},
-			{ name: 'Current chain', value: chain, inline: true }
+	const fields = [
+		{
+			name: 'Faction details',
+			value: [
+				`Leader: ${leader ? `${displayText(leader.name)} (ID ${leader.id})` : `Unavailable (ID ${basic.leader_id})`}`,
+				`Members: ${basic.members.toLocaleString()}`,
+				`Respect: ${basic.respect.toLocaleString()}`,
+				`Age: ${basic.days_old.toLocaleString()} days`,
+				`Best chain: ${basic.best_chain.toLocaleString()}`
+			].join('\n'),
+			inline: true
+		},
+		{ name: 'Current chain', value: displayChain(overview.chain), inline: true },
+		...chunkLines(
+			overview.territories.map((territory) => displayText(territory)),
+			800
+		).map((page, index, pages) => ({
+			name: `Territories${pages.length > 1 ? ` (${index + 1}/${pages.length})` : ''}`,
+			value: page.join(', ')
+		})),
+		...chunkLines([...overview.wars.map(displayWar), ...overview.pacts.map((pact) => `Pact: ${displayPact(pact)}`)], 800).map(
+			(page, index, pages) => ({
+				name: `Wars and pacts${pages.length > 1 ? ` (${index + 1}/${pages.length})` : ''}`,
+				value: page.join('\n')
+			})
 		)
-		.setTimestamp();
-
-	const embeds = [summary];
-	const territoryPages = chunkLines(overview.territories, 900);
-	if (territoryPages.length > 0) {
-		territoryPages.forEach((page, index) => {
-			embeds.push(
-				new EmbedBuilder()
-					.setColor(0x5865f2)
-					.setTitle(
-						`Territories (${overview.territories.length})${territoryPages.length > 1 ? ` - ${index + 1}/${territoryPages.length}` : ''}`
-					)
-					.setDescription(page.map((territory) => displayText(territory)).join(', '))
-			);
-		});
-	} else {
-		embeds.push(new EmbedBuilder().setColor(0x5865f2).setTitle('Territories').setDescription('None'));
+	];
+	if (overview.territories.length === 0) fields.push({ name: 'Territories', value: 'None', inline: false });
+	if (overview.wars.length === 0 && overview.pacts.length === 0) {
+		fields.push({ name: 'Wars and pacts', value: 'None', inline: false });
 	}
 
-	const warLines = [...overview.wars.map(displayWar), ...overview.pacts.map((pact) => `Pact: ${displayPact(pact)}`)];
-	const warPages = chunkLines(warLines);
-	if (warPages.length > 0) {
-		warPages.forEach((page, index) => {
-			embeds.push(
-				new EmbedBuilder()
-					.setColor(0x5865f2)
-					.setTitle(`Wars and pacts${warPages.length > 1 ? ` - ${index + 1}/${warPages.length}` : ''}`)
-					.setDescription(page.join('\n'))
-			);
-		});
-	} else {
-		embeds.push(new EmbedBuilder().setColor(0x5865f2).setTitle('Wars and pacts').setDescription('None'));
+	const embeds: EmbedBuilder[] = [];
+	for (let index = 0; index < fields.length; index += 5) {
+		const embed = new EmbedBuilder()
+			.setColor(0x5865f2)
+			.setTitle(title)
+			.setURL(`https://www.torn.com/factions.php?step=profile&ID=${basic.id}`)
+			.addFields(fields.slice(index, index + 5));
+		if (index === 0) {
+			embed.setDescription(`Faction ID: ${basic.id}`).setTimestamp();
+		}
+		embeds.push(embed);
 	}
+	return embeds;
+}
 
+export function buildTornFactionMemberEmbeds(overview: TornFactionOverview): EmbedBuilder[] {
+	const { basic } = overview;
+	const factionTitle = `${displayText(basic.name, 'Torn faction')}${basic.tag ? ` [${displayText(basic.tag)}]` : ''}`;
 	const rosterLines = overview.members.map(buildRosterLine);
 	const rosterPages = chunkLines(rosterLines);
+	const factionUrl = `https://www.torn.com/factions.php?step=profile&ID=${basic.id}`;
 	if (rosterPages.length > 0) {
-		rosterPages.forEach((page, index) => {
-			embeds.push(
-				new EmbedBuilder()
-					.setColor(0x5865f2)
-					.setTitle(
-						`Faction roster (${overview.members.length} members)${rosterPages.length > 1 ? ` - ${index + 1}/${rosterPages.length}` : ''}`
-					)
-					.setDescription(page.join('\n\n'))
-			);
-		});
-	} else {
-		embeds.push(new EmbedBuilder().setColor(0x5865f2).setTitle('Faction roster').setDescription('No members were returned.'));
+		return rosterPages.map((page, index) =>
+			new EmbedBuilder()
+				.setColor(0x5865f2)
+				.setTitle(
+					`Faction roster for ${factionTitle} (${overview.members.length} members)${
+						rosterPages.length > 1 ? ` - ${index + 1}/${rosterPages.length}` : ''
+					}`
+				)
+				.setURL(factionUrl)
+				.setDescription(page.join('\n\n'))
+		);
 	}
 
-	return embeds;
+	return [
+		new EmbedBuilder()
+			.setColor(0x5865f2)
+			.setTitle(`Faction roster for ${factionTitle}`)
+			.setURL(factionUrl)
+			.setDescription('No members were returned.')
+	];
 }

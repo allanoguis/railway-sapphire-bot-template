@@ -1,8 +1,8 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { loadConfig } = require('../dist/config.js');
-const { runTornFactionCommand } = require('../dist/commands/faction.js');
-const { buildTornFactionEmbeds } = require('../dist/features/torn/faction-embed.js');
+const { runTornFactionCommand } = require('../dist/commands/torn.js');
+const { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds } = require('../dist/features/torn/faction.js');
 const { getTornFactionOverview, pairTornAccount } = require('../dist/features/torn/service.js');
 
 const apiKey = 'f'.repeat(16);
@@ -162,19 +162,27 @@ test('fetches faction details and the full roster using only v2 endpoints and th
 		assert.equal(overview.pacts[0].factionName, 'Allied Faction');
 		assert.deepEqual(overview.territories, ['ABC']);
 
-		const embeds = buildTornFactionEmbeds(overview).map((embed) => embed.toJSON());
-		const rendered = JSON.stringify(embeds);
-		assert.match(rendered, /Faction Leader/);
-		assert.match(rendered, /Faction ID: 57494/);
-		assert.match(rendered, /faction-tag\.png/);
-		assert.match(rendered, /https:\/\/www\.torn\.com\/factions\.php/);
-		assert.match(rendered, /123,456/);
-		assert.match(rendered, /Status: Okay/);
-		assert.match(rendered, /<t:1700000000:R>/);
-		assert.match(rendered, /Territory war - ABC/);
-		assert.match(rendered, /Allied Faction/);
-		for (const member of members) assert.ok(rendered.includes(member.name), `Missing roster member ${member.name}`);
-		assert.ok(embeds.length > 3, 'Expected the faction summary and roster to be split across multiple messages.');
+		const infoEmbeds = buildTornFactionInfoEmbeds(overview).map((embed) => embed.toJSON());
+		const infoRendered = JSON.stringify(infoEmbeds);
+		assert.match(infoRendered, /Faction Leader/);
+		assert.match(infoRendered, /Faction ID: 57494/);
+		assert.doesNotMatch(infoRendered, /faction-tag\.png/);
+		assert.match(infoRendered, /https:\/\/www\.torn\.com\/factions\.php/);
+		assert.match(infoRendered, /123,456/);
+		assert.match(infoRendered, /Current chain/);
+		assert.match(infoRendered, /Territory war - ABC/);
+		assert.match(infoRendered, /Allied Faction/);
+		assert.doesNotMatch(infoRendered, /Faction Member 2/);
+
+		const memberEmbeds = buildTornFactionMemberEmbeds(overview).map((embed) => embed.toJSON());
+		const memberRendered = JSON.stringify(memberEmbeds);
+		assert.match(memberRendered, /Faction roster/);
+		assert.match(memberRendered, /Status: Okay/);
+		assert.match(memberRendered, /<t:1700000000:R>/);
+		assert.doesNotMatch(memberRendered, /faction-tag\.png/);
+		for (const member of members) assert.ok(memberRendered.includes(member.name), `Missing roster member ${member.name}`);
+		assert.doesNotMatch(memberRendered, /Respect/);
+		assert.ok(memberEmbeds.length > 1, 'Expected a large roster to be split across multiple messages.');
 	} finally {
 		global.fetch = originalFetch;
 		if (previousEncryptionKey === undefined) delete process.env.TORN_ENCRYPTION_KEY;
@@ -192,13 +200,17 @@ test('rejects faction commands outside the configured channel without fetching o
 		},
 		'98765432109876543'
 	);
-	const response = await runTornFactionCommand(interaction, {
-		storage: createStorage(),
-		tornFactionChannelId: channelId,
-		logger: { error() {} }
-	});
+	const response = await runTornFactionCommand(
+		interaction,
+		{
+			storage: createStorage(),
+			tornFactionChannelId: channelId,
+			logger: { error() {} }
+		},
+		'info'
+	);
 
-	assert.equal(response.content, 'Use `/torn faction` in the configured faction channel.');
+	assert.equal(response.content, 'Use `/torn faction info` or `/torn faction members` in the configured channel.');
 	assert.deepEqual(response.flags, 'Ephemeral');
 	assert.equal(interaction.calls.length, 1);
 	assert.equal(interaction.calls[0][0], 'reply');
@@ -211,18 +223,22 @@ test('keeps faction publishing disabled when no destination channel is configure
 			assert.fail('Unexpected channel post');
 		}
 	});
-	const response = await runTornFactionCommand(interaction, {
-		storage: createStorage(),
-		tornFactionChannelId: undefined,
-		logger: { error() {} }
-	});
+	const response = await runTornFactionCommand(
+		interaction,
+		{
+			storage: createStorage(),
+			tornFactionChannelId: undefined,
+			logger: { error() {} }
+		},
+		'info'
+	);
 
 	assert.equal(response.content, 'The faction command is not configured by the bot administrator.');
 	assert.equal(interaction.calls.length, 1);
 	assert.equal(interaction.calls[0][0], 'reply');
 });
 
-test('posts faction embeds publicly in the configured channel and privately acknowledges completion', async () => {
+test('posts faction info and member roster separately in the configured channel', async () => {
 	const originalFetch = global.fetch;
 	const previousEncryptionKey = process.env.TORN_ENCRYPTION_KEY;
 	const storage = createStorage();
@@ -246,18 +262,46 @@ test('posts faction embeds publicly in the configured channel and privately ackn
 		};
 		await pairTornAccount(storage, discordUserId, apiKey);
 
-		const response = await runTornFactionCommand(interaction, {
-			storage,
-			tornFactionChannelId: channelId,
-			logger: { error() {} }
-		});
+		const infoInteraction = createInteraction(channel);
+		const infoResponse = await runTornFactionCommand(
+			infoInteraction,
+			{
+				storage,
+				tornFactionChannelId: channelId,
+				logger: { error() {} }
+			},
+			'info'
+		);
 
-		assert.ok(posted.length > 3);
+		assert.equal(posted.length, 1);
+		assert.match(JSON.stringify(posted), /Faction details/);
+		assert.doesNotMatch(JSON.stringify(posted), /Faction roster/);
+		assert.doesNotMatch(JSON.stringify(posted), /faction-tag\.png/);
+		assert.match(infoResponse, /Posted faction information/);
+		assert.equal(infoInteraction.calls[0][0], 'defer');
+		assert.deepEqual(infoInteraction.calls[0][1], { flags: 'Ephemeral' });
+		assert.equal(infoInteraction.calls[1][0], 'edit');
+
+		posted.length = 0;
+		const membersInteraction = createInteraction(channel);
+		const membersResponse = await runTornFactionCommand(
+			membersInteraction,
+			{
+				storage,
+				tornFactionChannelId: channelId,
+				logger: { error() {} }
+			},
+			'members'
+		);
+
+		assert.ok(posted.length > 1);
 		assert.ok(posted.every((message) => message.allowedMentions.parse.length === 0));
-		assert.equal(interaction.calls[0][0], 'defer');
-		assert.deepEqual(interaction.calls[0][1], { flags: 'Ephemeral' });
-		assert.equal(interaction.calls[1][0], 'edit');
-		assert.match(response, /Posted the faction details and full roster/);
+		assert.ok(posted.every((message) => message.embeds[0].data.title.includes('Faction roster')));
+		assert.doesNotMatch(JSON.stringify(posted), /Respect/);
+		assert.match(membersResponse, /Posted the faction roster/);
+		assert.equal(membersInteraction.calls[0][0], 'defer');
+		assert.deepEqual(membersInteraction.calls[0][1], { flags: 'Ephemeral' });
+		assert.equal(membersInteraction.calls[1][0], 'edit');
 	} finally {
 		global.fetch = originalFetch;
 		if (previousEncryptionKey === undefined) delete process.env.TORN_ENCRYPTION_KEY;
@@ -274,11 +318,15 @@ test('reports an unpaired account without posting faction data', async () => {
 	};
 	const interaction = createInteraction(channel);
 
-	const response = await runTornFactionCommand(interaction, {
-		storage: createStorage(),
-		tornFactionChannelId: channelId,
-		logger: { error() {} }
-	});
+	const response = await runTornFactionCommand(
+		interaction,
+		{
+			storage: createStorage(),
+			tornFactionChannelId: channelId,
+			logger: { error() {} }
+		},
+		'info'
+	);
 
 	assert.match(response, /Pair your Torn API key with `\/pair`/);
 	assert.equal(interaction.calls.length, 2);

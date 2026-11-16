@@ -1,7 +1,7 @@
 import { ApplyOptions } from '@sapphire/decorators';
 import { ChatInputCommand, Command } from '@sapphire/framework';
 import type { ChatInputCommandInteraction } from 'discord.js';
-import { buildTornFactionEmbeds } from '../features/torn/faction-embed';
+import { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds } from '../features/torn/faction';
 import { buildTornProfileEmbed } from '../features/torn/profile';
 import { getTornFactionOverview, getTornProfile, TornApiError } from '../features/torn/service';
 import type { PostgresStorage } from '../lib/postgres-storage';
@@ -19,13 +19,17 @@ const tornSubcommands = {
 		name: 'profile',
 		description: 'View your profile or another player with your paired Torn API key.'
 	},
-	faction: {
-		name: 'faction',
-		description: 'Post your faction details and roster in the #bot-commands channel.'
+	factionInfo: {
+		name: 'faction info',
+		description: 'Post faction information in the #bot-commands channel.'
+	},
+	factionMembers: {
+		name: 'faction members',
+		description: 'Post the faction roster in the #bot-commands channel.'
 	}
 } as const;
 
-export async function runTornFactionCommand(interaction: ChatInputCommandInteraction, context: FactionCommandContext) {
+export async function runTornFactionCommand(interaction: ChatInputCommandInteraction, context: FactionCommandContext, view: 'info' | 'members') {
 	const { tornFactionChannelId } = context;
 	if (!tornFactionChannelId) {
 		return interaction.reply({
@@ -36,7 +40,7 @@ export async function runTornFactionCommand(interaction: ChatInputCommandInterac
 
 	if (!interaction.inGuild() || interaction.channelId !== tornFactionChannelId) {
 		return interaction.reply({
-			content: 'Use `/torn faction` in the configured faction channel.',
+			content: 'Use `/torn faction info` or `/torn faction members` in the configured channel.',
 			flags: 'Ephemeral'
 		});
 	}
@@ -53,12 +57,17 @@ export async function runTornFactionCommand(interaction: ChatInputCommandInterac
 	let postedMessages = 0;
 	try {
 		const overview = await getTornFactionOverview(context.storage, interaction.user.id);
-		for (const embed of buildTornFactionEmbeds(overview)) {
+		const embeds = view === 'info' ? buildTornFactionInfoEmbeds(overview) : buildTornFactionMemberEmbeds(overview);
+		for (const embed of embeds) {
 			await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
 			postedMessages += 1;
 		}
 
-		return interaction.editReply(`Posted the faction details and full roster in this channel (${postedMessages} messages).`);
+		const content =
+			view === 'info'
+				? `Posted faction information in this channel (${postedMessages} messages).`
+				: `Posted the faction roster in this channel (${postedMessages} messages).`;
+		return interaction.editReply(content);
 	} catch (error) {
 		if (error instanceof TornApiError) return interaction.editReply(error.message);
 
@@ -91,13 +100,22 @@ export class TornCommand extends Command {
 							option.setName('player-id').setDescription('Torn player ID; omit to view your paired profile.').setRequired(false)
 						)
 				)
-				.addSubcommand((subcommand) => subcommand.setName(tornSubcommands.faction.name).setDescription(tornSubcommands.faction.description))
+				.addSubcommandGroup((group) =>
+					group
+						.setName('faction')
+						.setDescription('Post faction information or view the faction roster.')
+						.addSubcommand((subcommand) => subcommand.setName('info').setDescription(tornSubcommands.factionInfo.description))
+						.addSubcommand((subcommand) => subcommand.setName('members').setDescription(tornSubcommands.factionMembers.description))
+				)
 		);
 	}
 
 	public async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
-		if (interaction.options.getSubcommand() === 'faction') {
-			return runTornFactionCommand(interaction, this.container);
+		if (interaction.options.getSubcommandGroup(false) === 'faction') {
+			const view = interaction.options.getSubcommand();
+			if (view === 'info' || view === 'members') {
+				return runTornFactionCommand(interaction, this.container, view);
+			}
 		}
 
 		const playerIdText = interaction.options.getString('player-id');

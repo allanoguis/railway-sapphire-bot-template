@@ -21,12 +21,16 @@ test('lists Torn subcommands with their descriptions instead of the parent comma
 			chatInputRun() {},
 			helpSubcommands: [
 				{ name: 'profile', description: 'View a Torn profile.' },
-				{ name: 'faction', description: 'Post faction details and roster.' }
+				{ name: 'faction info', description: 'Post faction information.' },
+				{ name: 'faction members', description: 'Post the faction roster.' }
 			]
 		}
 	];
 
-	assert.equal(formatCommandList(commands), '/torn faction - Post faction details and roster.\n/torn profile - View a Torn profile.');
+	assert.equal(
+		formatCommandList(commands),
+		'/torn faction info - Post faction information.\n/torn faction members - Post the faction roster.\n/torn profile - View a Torn profile.'
+	);
 });
 
 test('reports when there are no slash commands', () => {
