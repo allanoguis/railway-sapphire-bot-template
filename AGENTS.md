@@ -27,3 +27,8 @@ After work that changes the project or materially changes its status, update the
 ## Faction output policy
 
 -   Do not include faction tag-image data in future faction command output, embeds, examples, or documentation. The faction's text tag is separate and may still be included.
+-   `/torn faction organized-crime` uses the caller's paired key to post recruiting and planning crimes from Torn API v2 `cat=available` in the configured faction channel. Discord subcommand names cannot contain spaces, so use the hyphenated `organized-crime` name.
+
+## Test file policy
+
+-   Keep all files under `/test/` gitignored and do not add per-file exceptions. Local test files may be run for validation but should not be tracked.

@@ -27,6 +27,7 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 - `/torn faction info` to post the paired member's faction details in a permitted channel
 - `/torn faction members` to post the paired member's faction roster in that channel
 - `/torn faction unregistered` to post faction members who have not paired a Torn API key with the bot
+- `/torn faction organized-crime` to post the faction's active recruiting and planning organized crimes
 
 ## ⚙️ Configuration
 

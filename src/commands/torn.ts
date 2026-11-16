@@ -2,6 +2,7 @@ import { ApplyOptions } from '@sapphire/decorators';
 import { ChatInputCommand, Command } from '@sapphire/framework';
 import type { ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds } from '../features/torn/faction';
+import { buildTornFactionOrganizedCrimeEmbeds, getTornFactionOrganizedCrimes } from '../features/torn/faction-oc';
 import { buildTornFactionUnregisteredEmbeds, getTornFactionUnregisteredReport } from '../features/torn/faction-unregistered';
 import { buildTornProfileEmbed } from '../features/torn/profile';
 import { getTornFactionOverview, getTornProfile, TornApiError } from '../features/torn/service';
@@ -31,13 +32,17 @@ const tornSubcommands = {
 	factionUnregistered: {
 		name: 'faction unregistered',
 		description: 'Post faction members without a Torn API account paired with the bot.'
+	},
+	factionOrganizedCrime: {
+		name: 'faction organized-crime',
+		description: "Post your faction's active recruiting and planning organized crimes."
 	}
 } as const;
 
 export async function runTornFactionCommand(
 	interaction: ChatInputCommandInteraction,
 	context: FactionCommandContext,
-	view: 'info' | 'members' | 'unregistered'
+	view: 'info' | 'members' | 'unregistered' | 'organized-crime'
 ) {
 	const { tornFactionChannelId } = context;
 	if (!tornFactionChannelId) {
@@ -49,7 +54,8 @@ export async function runTornFactionCommand(
 
 	if (!interaction.inGuild() || interaction.channelId !== tornFactionChannelId) {
 		return interaction.reply({
-			content: 'Use `/torn faction info`, `/torn faction members`, or `/torn faction unregistered` in the configured channel.',
+			content:
+				'Use `/torn faction info`, `/torn faction members`, `/torn faction unregistered`, or `/torn faction organized-crime` in the configured channel.',
 			flags: 'Ephemeral'
 		});
 	}
@@ -66,7 +72,10 @@ export async function runTornFactionCommand(
 	let postedMessages = 0;
 	try {
 		let embeds: EmbedBuilder[];
-		if (view === 'unregistered') {
+		if (view === 'organized-crime') {
+			const report = await getTornFactionOrganizedCrimes(context.storage, interaction.user.id);
+			embeds = buildTornFactionOrganizedCrimeEmbeds(report);
+		} else if (view === 'unregistered') {
 			const report = await getTornFactionUnregisteredReport(context.storage, interaction.user.id);
 			embeds = buildTornFactionUnregisteredEmbeds(report);
 		} else {
@@ -84,6 +93,8 @@ export async function runTornFactionCommand(
 			content = `Posted faction information in this channel (${postedMessages} messages).`;
 		} else if (view === 'members') {
 			content = `Posted the faction roster in this channel (${postedMessages} messages).`;
+		} else if (view === 'organized-crime') {
+			content = `Posted the active organized crimes in this channel (${postedMessages} messages).`;
 		} else {
 			content = `Posted the unregistered faction member list in this channel (${postedMessages} messages).`;
 		}
@@ -124,11 +135,14 @@ export class TornCommand extends Command {
 				.addSubcommandGroup((group) =>
 					group
 						.setName('faction')
-						.setDescription('Post faction information, the roster, or the paired-account report.')
+						.setDescription('Post faction information, the roster, paired-account status, or active organized crimes.')
 						.addSubcommand((subcommand) => subcommand.setName('info').setDescription(tornSubcommands.factionInfo.description))
 						.addSubcommand((subcommand) => subcommand.setName('members').setDescription(tornSubcommands.factionMembers.description))
 						.addSubcommand((subcommand) =>
 							subcommand.setName('unregistered').setDescription(tornSubcommands.factionUnregistered.description)
+						)
+						.addSubcommand((subcommand) =>
+							subcommand.setName('organized-crime').setDescription(tornSubcommands.factionOrganizedCrime.description)
 						)
 				)
 		);
@@ -137,7 +151,7 @@ export class TornCommand extends Command {
 	public async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
 		if (interaction.options.getSubcommandGroup(false) === 'faction') {
 			const view = interaction.options.getSubcommand();
-			if (view === 'info' || view === 'members' || view === 'unregistered') {
+			if (view === 'info' || view === 'members' || view === 'unregistered' || view === 'organized-crime') {
 				return runTornFactionCommand(interaction, this.container, view);
 			}
 		}

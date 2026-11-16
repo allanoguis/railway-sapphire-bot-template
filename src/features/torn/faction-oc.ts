@@ -1,3 +1,4 @@
+import { EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { getTornFactionApiContext, requestTornPayload, TornApiError } from './service';
 import type { TornFactionApiContext, TornStorage } from './service';
 
@@ -71,6 +72,72 @@ export interface TornFactionOrganizedCrime {
 export interface TornFactionOrganizedCrimes {
 	faction: TornFactionApiContext['faction'];
 	crimes: TornFactionOrganizedCrime[];
+}
+
+function displayText(value: string | undefined, fallback = 'Unavailable'): string {
+	const text = value?.trim();
+	return text ? escapeMarkdown(text).replace(/\s+/g, ' ').slice(0, 100) : fallback;
+}
+
+function chunkLines(lines: string[], maxCharacters = 3500): string[][] {
+	const pages: string[][] = [];
+	let page: string[] = [];
+	let length = 0;
+
+	for (const line of lines) {
+		if (page.length > 0 && length + line.length + 1 > maxCharacters) {
+			pages.push(page);
+			page = [];
+			length = 0;
+		}
+		page.push(line);
+		length += line.length + 1;
+	}
+
+	if (page.length > 0) pages.push(page);
+	return pages;
+}
+
+function buildCrimeLines(crime: TornFactionOrganizedCrime): string[] {
+	const readyAt = crime.readyAt && Number.isSafeInteger(crime.readyAt) && crime.readyAt > 0 ? ` - Ready <t:${crime.readyAt}:R>` : '';
+	const lines = [`**${displayText(crime.name)}** - ${crime.status}${readyAt}`];
+	if (!crime.slots?.length) return [...lines, '- No slot details returned.'];
+
+	for (const slot of crime.slots) {
+		const position = displayText(slot.positionInfo?.label ?? slot.position);
+		const member = slot.user ? `Torn ID ${slot.user.id}` : 'Open';
+		const item = slot.itemRequirement
+			? ` - Item ${slot.itemRequirement.id} ${slot.itemRequirement.isAvailable ? 'available' : 'unavailable'}`
+			: '';
+		lines.push(`- ${position}: ${member}${item}`);
+	}
+	return lines;
+}
+
+export function buildTornFactionOrganizedCrimeEmbeds(report: TornFactionOrganizedCrimes): EmbedBuilder[] {
+	const factionName = displayText(report.faction.name, 'Torn faction');
+	const factionUrl = `https://www.torn.com/factions.php?step=profile&ID=${report.faction.id}`;
+	if (report.crimes.length === 0) {
+		return [
+			new EmbedBuilder()
+				.setColor(0x5865f2)
+				.setTitle(`Active organized crimes for ${factionName}`)
+				.setURL(factionUrl)
+				.setDescription('No recruiting or planning organized crimes were found.')
+		];
+	}
+
+	const lines = report.crimes.flatMap((crime) => [...buildCrimeLines(crime), '']);
+	const pages = chunkLines(lines);
+	return pages.map((page, index) =>
+		new EmbedBuilder()
+			.setColor(0x5865f2)
+			.setTitle(
+				`Active organized crimes for ${factionName} (${report.crimes.length})${pages.length > 1 ? ` - ${index + 1}/${pages.length}` : ''}`
+			)
+			.setURL(factionUrl)
+			.setDescription(page.join('\n').trim())
+	);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

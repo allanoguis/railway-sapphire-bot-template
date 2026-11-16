@@ -84,13 +84,6 @@ typings/
 .nuxt
 dist
 /test/
-!/test/
-/test/*
-!/test/command-info.test.cjs
-!/test/torn-profile.test.cjs
-!/test/torn-faction.test.cjs
-!/test/torn-faction-oc.test.cjs
-!/test/storage.test.cjs
 
 # Gatsby files
 .cache/
