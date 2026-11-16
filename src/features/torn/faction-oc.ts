@@ -10,6 +10,8 @@ import {
 import type { TornFactionApiContext, TornStorage } from './service';
 
 const CRIME_PAGE_SIZE = 20;
+const FACTION_CRIMES_URL = 'https://www.torn.com/factions.php?step=your&type=1#faction-crimes';
+type TornCrimeCategory = 'available' | 'recruiting' | 'planning' | 'completed';
 
 export interface TornFactionCrimeItemRequirement {
 	id: number;
@@ -79,6 +81,12 @@ export interface TornFactionOrganizedCrime {
 export interface TornFactionOrganizedCrimes {
 	faction: TornFactionApiContext['faction'];
 	crimes: TornFactionOrganizedCrime[];
+	counts: {
+		recruiting: number;
+		ongoing: number;
+		completed: number;
+		lastUpdatedAt: number;
+	};
 }
 
 function displayText(value: string | undefined, fallback = 'Unavailable'): string {
@@ -168,6 +176,24 @@ export function buildTornFactionOrganizedCrimeEmbeds(report: TornFactionOrganize
 			.setURL(factionUrl)
 			.setDescription(page.join('\n').trim())
 	);
+}
+
+export function buildTornFactionOrganizedCrimeSummaryMessage(report: TornFactionOrganizedCrimes, now = Date.now()): string {
+	const elapsedSeconds = Math.max(0, Math.floor(now / 1000) - report.counts.lastUpdatedAt);
+	const hours = Math.floor(elapsedSeconds / 3600);
+	const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+	const seconds = elapsedSeconds % 60;
+	const formatPart = (value: number) => String(value).padStart(2, '0');
+
+	return [
+		'Faction Organized crime links:',
+		`Recruiting: ${report.counts.recruiting}`,
+		`Ongoing: ${report.counts.ongoing}`,
+		`Completed: ${report.counts.completed}`,
+		'',
+		`Last updated: ${formatPart(hours)} hours | ${formatPart(minutes)} minutes | ${formatPart(seconds)} seconds ago`,
+		`Link: ${FACTION_CRIMES_URL}`
+	].join('\n');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -332,7 +358,7 @@ function normalizeCrimePage(payload: Record<string, unknown>): TornFactionOrgani
 	return crimes.map(normalizeCrime);
 }
 
-function readNextOffset(payload: Record<string, unknown>, offset: number): number | undefined {
+function readNextOffset(payload: Record<string, unknown>, offset: number, category: TornCrimeCategory): number | undefined {
 	const { _metadata } = payload;
 	if (_metadata === undefined) return undefined;
 	if (!isRecord(_metadata)) return invalidCrimeData();
@@ -354,7 +380,7 @@ function readNextOffset(payload: Record<string, unknown>, offset: number): numbe
 	if (
 		nextUrl.origin !== 'https://api.torn.com' ||
 		nextUrl.pathname !== '/v2/faction/crimes' ||
-		(nextCategory !== null && nextCategory !== 'available') ||
+		(nextCategory !== null && nextCategory !== category) ||
 		!Number.isSafeInteger(nextOffset) ||
 		nextOffset <= offset
 	) {
@@ -363,13 +389,50 @@ function readNextOffset(payload: Record<string, unknown>, offset: number): numbe
 	return nextOffset;
 }
 
-async function requestCrimePage(apiKey: string, offset: number): Promise<Record<string, unknown>> {
+async function requestCrimePage(apiKey: string, category: TornCrimeCategory, offset: number): Promise<Record<string, unknown>> {
 	const url = new URL('https://api.torn.com/v2/faction/crimes');
-	url.searchParams.set('cat', 'available');
+	url.searchParams.set('cat', category);
 	url.searchParams.set('limit', String(CRIME_PAGE_SIZE));
 	url.searchParams.set('offset', String(offset));
 	url.searchParams.set('key', apiKey);
-	return requestTornPayload(url);
+	try {
+		return await requestTornPayload(url);
+	} catch (error) {
+		if (error instanceof TornApiError && (error.code === 7 || error.code === 16)) {
+			throw new TornApiError(
+				"The registered faction leader's API key needs Faction API Access. Ask the leader to enable it or pair a key that has it.",
+				error.code
+			);
+		}
+		throw error;
+	}
+}
+
+async function countCrimesInCategory(apiKey: string, category: Exclude<TornCrimeCategory, 'available'>): Promise<number> {
+	let count = 0;
+	let offset = 0;
+
+	while (true) {
+		const payload = await requestCrimePage(apiKey, category, offset);
+		const { crimes } = payload;
+		if (!Array.isArray(crimes)) return invalidCrimeData();
+		for (const crime of crimes) {
+			if (!isRecord(crime)) return invalidCrimeData();
+			requiredNumber(crime, 'id');
+		}
+		count += crimes.length;
+
+		const nextOffset = readNextOffset(payload, offset, category);
+		if (nextOffset !== undefined) {
+			offset = nextOffset;
+		} else if (crimes.length === CRIME_PAGE_SIZE) {
+			offset += CRIME_PAGE_SIZE;
+		} else {
+			break;
+		}
+	}
+
+	return count;
 }
 
 export async function getTornFactionOrganizedCrimes(storage: TornStorage | null, discordUserId: string): Promise<TornFactionOrganizedCrimes> {
@@ -399,22 +462,11 @@ export async function getTornFactionOrganizedCrimes(storage: TornStorage | null,
 	let offset = 0;
 
 	while (true) {
-		let payload: Record<string, unknown>;
-		try {
-			payload = await requestCrimePage(leaderApiKey, offset);
-		} catch (error) {
-			if (error instanceof TornApiError && (error.code === 7 || error.code === 16)) {
-				throw new TornApiError(
-					"The registered faction leader's API key needs Faction API Access. Ask the leader to enable it or pair a key that has it.",
-					error.code
-				);
-			}
-			throw error;
-		}
+		const payload = await requestCrimePage(leaderApiKey, 'available', offset);
 		const crimes = normalizeCrimePage(payload);
 		for (const crime of crimes) crimesById.set(crime.id, crime);
 
-		const nextOffset = readNextOffset(payload, offset);
+		const nextOffset = readNextOffset(payload, offset, 'available');
 		if (nextOffset !== undefined) {
 			offset = nextOffset;
 		} else if (crimes.length === CRIME_PAGE_SIZE) {
@@ -424,5 +476,18 @@ export async function getTornFactionOrganizedCrimes(storage: TornStorage | null,
 		}
 	}
 
-	return { faction: faction.faction, crimes: [...crimesById.values()] };
+	const recruiting = await countCrimesInCategory(leaderApiKey, 'recruiting');
+	const ongoing = await countCrimesInCategory(leaderApiKey, 'planning');
+	const completed = await countCrimesInCategory(leaderApiKey, 'completed');
+
+	return {
+		faction: faction.faction,
+		crimes: [...crimesById.values()],
+		counts: {
+			recruiting,
+			ongoing,
+			completed,
+			lastUpdatedAt: Math.floor(Date.now() / 1000)
+		}
+	};
 }

@@ -2,7 +2,11 @@ import { ApplyOptions } from '@sapphire/decorators';
 import { ChatInputCommand, Command } from '@sapphire/framework';
 import type { ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds } from '../features/torn/faction';
-import { buildTornFactionOrganizedCrimeEmbeds, getTornFactionOrganizedCrimes } from '../features/torn/faction-oc';
+import {
+	buildTornFactionOrganizedCrimeEmbeds,
+	buildTornFactionOrganizedCrimeSummaryMessage,
+	getTornFactionOrganizedCrimes
+} from '../features/torn/faction-oc';
 import { buildTornFactionUnregisteredEmbeds, getTornFactionUnregisteredReport } from '../features/torn/faction-unregistered';
 import { buildTornProfileEmbed } from '../features/torn/profile';
 import { getTornFactionOverview, getTornProfile, TornApiError } from '../features/torn/service';
@@ -35,7 +39,7 @@ const tornSubcommands = {
 	},
 	factionOrganizedCrime: {
 		name: 'faction organized-crime',
-		description: "Post active crimes using the leader's key, with score, CPR, and missing-item highlights."
+		description: 'Post crimes with category counts, OC details, missing-item highlights, and a faction link.'
 	}
 } as const;
 
@@ -72,9 +76,11 @@ export async function runTornFactionCommand(
 	let postedMessages = 0;
 	try {
 		let embeds: EmbedBuilder[];
+		let summaryMessage: string | undefined;
 		if (view === 'organized-crime') {
 			const report = await getTornFactionOrganizedCrimes(context.storage, interaction.user.id);
 			embeds = buildTornFactionOrganizedCrimeEmbeds(report);
+			summaryMessage = buildTornFactionOrganizedCrimeSummaryMessage(report);
 		} else if (view === 'unregistered') {
 			const report = await getTornFactionUnregisteredReport(context.storage, interaction.user.id);
 			embeds = buildTornFactionUnregisteredEmbeds(report);
@@ -87,6 +93,10 @@ export async function runTornFactionCommand(
 			await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
 			postedMessages += 1;
 		}
+		if (summaryMessage !== undefined) {
+			await channel.send({ content: summaryMessage, allowedMentions: { parse: [] } });
+			postedMessages += 1;
+		}
 
 		let content: string;
 		if (view === 'info') {
@@ -94,7 +104,7 @@ export async function runTornFactionCommand(
 		} else if (view === 'members') {
 			content = `Posted the faction roster in this channel (${postedMessages} messages).`;
 		} else if (view === 'organized-crime') {
-			content = `Posted the active organized crimes in this channel (${postedMessages} messages).`;
+			content = `Posted the active organized crimes and summary in this channel (${postedMessages} messages).`;
 		} else {
 			content = `Posted the unregistered faction member list in this channel (${postedMessages} messages).`;
 		}
