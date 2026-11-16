@@ -8,6 +8,8 @@ import { hasTornPairingConfiguration } from '../features/torn/service';
 	description: 'Pair your Torn account with your Discord account.'
 })
 export class PairCommand extends Command {
+	public readonly helpCategory = 'torn' as const;
+
 	public override registerApplicationCommands(registry: ChatInputCommand.Registry) {
 		registry.registerChatInputCommand((builder) => builder.setName(this.name).setDescription(this.description));
 	}

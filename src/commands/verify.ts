@@ -7,6 +7,8 @@ import { TornApiError, verifyTornAccount } from '../features/torn/service';
 	description: 'Verify that your paired Torn API key is still valid.'
 })
 export class VerifyCommand extends Command {
+	public readonly helpCategory = 'torn' as const;
+
 	public override registerApplicationCommands(registry: ChatInputCommand.Registry) {
 		registry.registerChatInputCommand((builder) => builder.setName(this.name).setDescription(this.description));
 	}

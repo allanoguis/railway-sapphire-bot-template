@@ -85,6 +85,7 @@ export async function runTornFactionCommand(interaction: ChatInputCommandInterac
 	description: 'View Torn profiles or post your faction information.'
 })
 export class TornCommand extends Command {
+	public readonly helpCategory = 'torn' as const;
 	public readonly helpSubcommands = Object.values(tornSubcommands);
 
 	public override registerApplicationCommands(registry: ChatInputCommand.Registry) {

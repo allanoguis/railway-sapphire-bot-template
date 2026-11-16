@@ -18,9 +18,10 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 
 - Discord.js and Sapphire
 - TypeScript
-- `/help` command discovery
+- `/help` lists commands in Core and Torn sections
 - `/about` runtime details
 - `/debug` to enable or disable the construction status
+- `/clear` to remove selected users' messages, a specified number of recent messages, or all recent messages in a channel
 - `/pair` and `/verify` for Torn account pairing and API-key verification
 - `/torn profile` for individual Torn profile information
 - `/torn faction info` to post the paired member's faction details in a permitted channel
@@ -54,6 +55,12 @@ requiredUserPermissions: PermissionFlagsBits.ManageMessages
 
 Sapphire's built-in `requiredUserPermissions` and `requiredClientPermissions` options are also available when a command needs different permission requirements.
 
+The `/clear` command requires both the user and the bot to have Manage Messages permission in the current channel. It asks for private confirmation before deleting, and leaves messages older than 14 days untouched because Discord does not allow them to be bulk-deleted.
+
+Use `/clear user` to remove up to 100 recent messages from a selected user, `/clear amount` to remove up to 100 of the latest messages regardless of author, or `/clear all` to remove all eligible recent messages in the current channel. Each operation requires an ephemeral confirmation.
+
+The `/help` command lists general bot commands, including `/clear`, under **Core**. Torn-related commands such as `/pair`, `/verify`, `/unpair`, and `/torn` appear under **Torn**.
+
 ## ⏱️ Command cooldowns
 
 Commands default to one use per user every five seconds. This is configurable with the two cooldown variables above; individual commands can override the default with Sapphire's `cooldownDelay` and `cooldownLimit` options.
@@ -74,6 +81,8 @@ src/
   listeners/      # Discord event adapters
   preconditions/  # Reusable access and eligibility checks
   features/
+    core/         # General bot functionality, independent of Torn
+    torn/         # Torn-specific functionality and API integrations
     <feature>/
       service.ts  # Feature-specific behavior
       types.ts    # Feature-specific types, when needed

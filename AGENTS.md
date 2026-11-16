@@ -6,6 +6,12 @@ After work that changes the project or materially changes its status, update `pr
 
 `progress.md` is intentionally ignored by Git and is local to this checkout. Do not force-add or commit it. If it is missing, reconstruct it from this file, the repository, and available session history before proceeding; note that the progress file is not synchronized to other clones or machines.
 
+## Product feature categories
+
+-   Organize the bot's functionality into Core and Torn features. Core contains general bot features that are not specific to Torn; Torn contains features related to Torn, its game data, accounts, and API.
+-   Keep general bot commands such as `/clear` as standalone Core commands, not as subcommands of `/torn`.
+-   The `/help` list treats commands as Core by default. Set `helpCategory` to `'torn'` on Torn-specific commands so they appear in the Torn section.
+
 ## Torn API version policy
 
 -   All Torn API requests made by the application must use Torn API v2. Do not add or retain v1 request paths or v1 `selections` parameters; avoid mixed v1/v2 request flows.

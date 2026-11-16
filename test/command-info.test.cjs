@@ -10,26 +10,49 @@ test('lists slash commands in a stable order and omits message-only commands', (
 		{ name: 'about', description: 'Bot details.', chatInputRun() {} }
 	];
 
-	assert.equal(formatCommandList(commands), '/about - Bot details.\n/ping - Pong.');
+	assert.equal(formatCommandList(commands), '**Core**\n/about - Bot details.\n/ping - Pong.');
 });
 
-test('lists Torn subcommands with their descriptions instead of the parent command', () => {
+test('groups Core and Torn commands and lists their subcommands instead of parent commands', () => {
 	const commands = [
 		{
 			name: 'torn',
 			description: 'Torn command.',
 			chatInputRun() {},
+			helpCategory: 'torn',
 			helpSubcommands: [
 				{ name: 'profile', description: 'View a Torn profile.' },
 				{ name: 'faction info', description: 'Post faction information.' },
 				{ name: 'faction members', description: 'Post the faction roster.' }
 			]
-		}
+		},
+		{
+			name: 'clear',
+			description: 'Clear messages.',
+			chatInputRun() {},
+			helpSubcommands: [
+				{ name: 'user', description: "Delete a selected user's recent messages by amount." },
+				{ name: 'amount', description: 'Delete a number of the latest messages from any author.' },
+				{ name: 'all', description: 'Delete all removable recent messages in this channel.' }
+			]
+		},
+		{ name: 'pair', description: 'Pair a Torn account.', chatInputRun() {}, helpCategory: 'torn' }
 	];
 
 	assert.equal(
 		formatCommandList(commands),
-		'/torn faction info - Post faction information.\n/torn faction members - Post the faction roster.\n/torn profile - View a Torn profile.'
+		[
+			'**Core**',
+			'/clear all - Delete all removable recent messages in this channel.',
+			'/clear amount - Delete a number of the latest messages from any author.',
+			"/clear user - Delete a selected user's recent messages by amount.",
+			'',
+			'**Torn**',
+			'/pair - Pair a Torn account.',
+			'/torn faction info - Post faction information.',
+			'/torn faction members - Post the faction roster.',
+			'/torn profile - View a Torn profile.'
+		].join('\n')
 	);
 });
 
