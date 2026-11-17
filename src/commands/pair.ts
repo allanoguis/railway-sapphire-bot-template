@@ -26,7 +26,7 @@ export class PairCommand extends Command {
 			}
 
 			const embed = new EmbedBuilder()
-				.setColor(0x5865f2)
+				.setColor(0x2CB51F)
 				.setTitle('Torn API key use and storage')
 				.setDescription('Review this disclosure before entering your API key. Never provide your Torn password.')
 				.addFields(
@@ -58,7 +58,7 @@ export class PairCommand extends Command {
 				);
 
 			const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-				new ButtonBuilder().setCustomId(`torn:pair:${interaction.user.id}`).setLabel('Continue to pair').setStyle(ButtonStyle.Primary)
+				new ButtonBuilder().setCustomId(`torn:pair:${interaction.user.id}`).setLabel('Continue to pair').setStyle(ButtonStyle.Success)
 			);
 			return interaction.editReply({ embeds: [embed], components: [row] });
 		} catch (error) {
