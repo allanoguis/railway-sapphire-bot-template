@@ -18,7 +18,7 @@ export class TornInteractionsListener extends Listener<typeof Events.Interaction
 			if (!(await requireTornFeature('pair', interaction, this.container.storage, this.container.logger))) return;
 			const keyInput = new TextInputBuilder()
 				.setCustomId('api-key')
-				.setLabel('Torn API key (never your Torn password)')
+				.setLabel('Limited Access API key (not password)')
 				.setStyle(TextInputStyle.Short)
 				.setMinLength(16)
 				.setMaxLength(16)

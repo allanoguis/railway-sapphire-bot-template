@@ -52,7 +52,7 @@ export class PairCommand extends Command {
 					},
 					{
 						name: 'Key access level',
-						value: 'Pairing, verification, and every `/torn` command request `basic`; profile requests may also use `profile`, `bars`, `cooldowns`, and `battlestats`.',
+						value: 'A Limited Access key is required. Pairing, verification, and `/torn` check `basic` and key `info`; profile requests may also use `profile`, `bars`, `cooldowns`, and `battlestats`. Organized crimes additionally require Faction API Access.',
 						inline: false
 					}
 				);

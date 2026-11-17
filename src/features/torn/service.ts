@@ -311,6 +311,22 @@ async function requestBasicProfile(apiKey: string, bypassCache = false): Promise
 	return { playerId, name: typeof basic.name === 'string' ? basic.name : undefined };
 }
 
+async function requireLimitedAccess(apiKey: string, playerId: number): Promise<void> {
+	const url = new URL('https://api.torn.com/v2/key/info');
+	url.searchParams.set('timestamp', String(Math.floor(Date.now() / 1000)));
+	url.searchParams.set('key', apiKey);
+	const info = readSelection(await requestTornPayload(url), 'info');
+	if (!isRecord(info.access) || typeof info.access.type !== 'string' || !isRecord(info.user) || typeof info.user.id !== 'number') {
+		throw new TornApiError('Torn returned unexpected API key information. Please try again later.');
+	}
+	if (info.user.id !== playerId) {
+		throw new TornApiError('The saved Torn API key no longer matches the paired account. Use `/pair` to pair a valid key.');
+	}
+	if (info.access.type !== 'Limited Access') {
+		throw new TornApiError('A Torn Limited Access API key is required. Create one in Torn and pair it with `/pair`.');
+	}
+}
+
 async function requestProfile(apiKey: string, playerId?: number): Promise<TornProfile> {
 	const profile = normalizeProfile(readSelection(await requestSelection(apiKey, 'profile', playerId), 'profile'));
 	if (typeof profile.player_id !== 'number') {
@@ -543,6 +559,7 @@ async function getVerifiedCaller(storage: TornStorage | null, discordUserId: str
 		throw error;
 	}
 	if (playerId !== credential.playerId) throw new TornApiError(pairingMessage);
+	await requireLimitedAccess(apiKey, playerId);
 	return { apiKey, playerId };
 }
 
@@ -565,7 +582,9 @@ export async function getTornApiKeyForPlayerId(
 	if (!encryptionKey) {
 		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
 	}
-	return decryptApiKey(credential, encryptionKey, stored.discordId);
+	const apiKey = decryptApiKey(credential, encryptionKey, stored.discordId);
+	await requireLimitedAccess(apiKey, playerId);
+	return apiKey;
 }
 
 export function hasTornPairingConfiguration(): boolean {
@@ -586,6 +605,7 @@ export async function pairTornAccount(
 	}
 
 	const { playerId, name } = await requestBasicProfile(apiKey);
+	await requireLimitedAccess(apiKey, playerId);
 	const encryptedKey = encryptApiKey(apiKey, encryptionKey, discordUserId);
 	await storage.setTornApi(discordUserId, {
 		version: 1 as const,
@@ -607,10 +627,12 @@ export async function verifyTornAccount(
 		throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
 	}
 
-	const { playerId, name } = await requestBasicProfile(decryptApiKey(credential, encryptionKey, discordUserId));
+	const apiKey = decryptApiKey(credential, encryptionKey, discordUserId);
+	const { playerId, name } = await requestBasicProfile(apiKey);
 	if (playerId !== credential.playerId) {
 		throw new TornApiError('The saved Torn API key no longer matches the paired account. Use `/pair` to pair a valid key.');
 	}
+	await requireLimitedAccess(apiKey, playerId);
 
 	return { playerId: credential.playerId, name };
 }

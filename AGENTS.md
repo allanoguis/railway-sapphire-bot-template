@@ -32,6 +32,7 @@ After work that changes the project or materially changes its status, update the
 ## Torn API version policy
 
 -   All Torn API requests made by the application must use Torn API v2. Do not add or retain v1 request paths or v1 `selections` parameters; avoid mixed v1/v2 request flows.
+-   Paired Torn keys must have the exact `Limited Access` type. Check the key owner and access type through v2 `/key/info` when pairing, verifying, and using stored keys; do not overwrite an existing credential when a replacement fails validation. Faction crime requests additionally require Faction API Access.
 -   Before implementing or changing Torn API calls, check the current official Torn API v2 Swagger UI for endpoints, request parameters, access requirements, and response schemas: [Torn - Swagger UI](https://www.torn.com/swagger.php#/). Do not rely on legacy code, old examples, or assumptions when they conflict with the current documentation.
 -   When a request touches an existing v1 flow, migrate every affected call site, response parser/type, test, and directly related documentation to v2 in the same change. If official v2 behavior cannot be confirmed, pause and ask rather than guessing.
 -   Tests for Torn API behavior must assert the v2 endpoint and the documented v2 response shape. Do not silently fall back to v1.
