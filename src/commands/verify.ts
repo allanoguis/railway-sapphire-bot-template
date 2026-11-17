@@ -1,6 +1,7 @@
 import { ApplyOptions } from '@sapphire/decorators';
 import { ChatInputCommand, Command } from '@sapphire/framework';
 import { TornApiError, verifyTornAccount } from '../features/torn/service';
+import { requireTornFeature } from '../features/torn/switches';
 
 @ApplyOptions<Command.Options>({
 	name: 'verify',
@@ -14,6 +15,7 @@ export class VerifyCommand extends Command {
 	}
 
 	public async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
+		if (!(await requireTornFeature('verify', interaction, this.container.storage, this.container.logger))) return;
 		const { storage } = this.container;
 		if (!storage) {
 			return interaction.reply({

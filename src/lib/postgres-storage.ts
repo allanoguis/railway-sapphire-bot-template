@@ -1,4 +1,5 @@
 import type { Pool, QueryResultRow } from 'pg';
+import { tornFeatures, type TornFeature } from '../features/torn/switches';
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -21,6 +22,13 @@ export class PostgresStorage {
 	public constructor(private readonly pool: Pick<Pool, 'query' | 'end'>) {}
 
 	public async initialize(): Promise<boolean> {
+		await this.pool.query(`
+			CREATE TABLE IF NOT EXISTS torn_feature_settings (
+				feature TEXT PRIMARY KEY,
+				enabled BOOLEAN NOT NULL,
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)
+		`);
 		await this.pool.query(`
 			CREATE TABLE IF NOT EXISTS verified_users (
 				discord_id TEXT PRIMARY KEY,
@@ -66,6 +74,25 @@ export class PostgresStorage {
 	public async getTornApi(discordId: string): Promise<JsonValue | undefined> {
 		const result = await this.pool.query<VerifiedUserRow>('SELECT torn_api FROM verified_users WHERE discord_id = $1', [discordId]);
 		return result.rows[0]?.torn_api;
+	}
+
+	public async isTornFeatureEnabled(feature: TornFeature): Promise<boolean> {
+		const result = await this.pool.query<{ enabled: boolean }>('SELECT enabled FROM torn_feature_settings WHERE feature = $1', [feature]);
+		return result.rows[0]?.enabled ?? true;
+	}
+
+	public async getTornFeatureSettings(): Promise<Record<TornFeature, boolean>> {
+		const result = await this.pool.query<{ feature: string; enabled: boolean }>('SELECT feature, enabled FROM torn_feature_settings');
+		const values = new Map(result.rows.map((row) => [row.feature, row.enabled]));
+		return Object.fromEntries(tornFeatures.map((feature) => [feature, values.get(feature) ?? true])) as Record<TornFeature, boolean>;
+	}
+
+	public async setTornFeatureEnabled(feature: TornFeature, enabled: boolean): Promise<void> {
+		await this.pool.query(
+			`INSERT INTO torn_feature_settings (feature, enabled) VALUES ($1, $2)
+			ON CONFLICT (feature) DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = NOW()`,
+			[feature, enabled]
+		);
 	}
 
 	public async getTornApiByPlayerId(playerId: number): Promise<{ discordId: string; tornApi: JsonValue } | undefined> {

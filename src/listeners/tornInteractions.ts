@@ -1,6 +1,7 @@
 import { Events, Listener } from '@sapphire/framework';
 import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, type Interaction, type ModalActionRowComponentBuilder } from 'discord.js';
 import { pairTornAccount, TornApiError } from '../features/torn/service';
+import { requireTornFeature } from '../features/torn/switches';
 
 export class TornInteractionsListener extends Listener<typeof Events.InteractionCreate> {
 	public constructor(context: Listener.LoaderContext) {
@@ -14,6 +15,7 @@ export class TornInteractionsListener extends Listener<typeof Events.Interaction
 				return interaction.reply({ content: 'This Torn pairing request belongs to another user.', flags: 'Ephemeral' });
 			}
 
+			if (!(await requireTornFeature('pair', interaction, this.container.storage, this.container.logger))) return;
 			const keyInput = new TextInputBuilder()
 				.setCustomId('api-key')
 				.setLabel('Torn API key (never your Torn password)')
@@ -34,6 +36,7 @@ export class TornInteractionsListener extends Listener<typeof Events.Interaction
 			return interaction.reply({ content: 'This Torn pairing request belongs to another user.', flags: 'Ephemeral' });
 		}
 
+		if (!(await requireTornFeature('pair', interaction, this.container.storage, this.container.logger))) return;
 		const { storage } = this.container;
 		if (!storage) {
 			return interaction.reply({

@@ -2,6 +2,7 @@ import { ApplyOptions } from '@sapphire/decorators';
 import { ChatInputCommand, Command } from '@sapphire/framework';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { hasTornPairingConfiguration } from '../features/torn/service';
+import { requireTornFeature } from '../features/torn/switches';
 
 @ApplyOptions<Command.Options>({
 	name: 'pair',
@@ -15,6 +16,7 @@ export class PairCommand extends Command {
 	}
 
 	public async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
+		if (!(await requireTornFeature('pair', interaction, this.container.storage, this.container.logger))) return;
 		this.container.logger.debug('Handling /pair command');
 		await interaction.deferReply({ flags: 'Ephemeral' });
 		try {
