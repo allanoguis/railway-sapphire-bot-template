@@ -197,7 +197,7 @@ export function buildTornFactionOrganizedCrimeSummaryEmbed(report: TornFactionOr
 				`✅${spacing}Completed:${spacing}**${report.counts.completed}**`,
 				'',
 				`🕛${spacing}Last updated:${spacing}**<t:${report.counts.lastUpdatedAt}:F>**`,
-				`🔗${spacing}**Link:${spacing}**[${factionName} Organized Crimes Page](${FACTION_CRIMES_URL})**`
+				`🔗${spacing}**Link:${spacing}**[${factionName} Organized Crimes Page]**(${FACTION_CRIMES_URL})`
 			].join('\n')
 		);
 }
