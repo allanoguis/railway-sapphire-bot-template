@@ -2,11 +2,7 @@ import { ApplyOptions } from '@sapphire/decorators';
 import { ChatInputCommand, Command } from '@sapphire/framework';
 import type { ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds } from '../features/torn/faction';
-import {
-	buildTornFactionOrganizedCrimeEmbeds,
-	buildTornFactionOrganizedCrimeSummaryEmbed,
-	getTornFactionOrganizedCrimes
-} from '../features/torn/faction-oc';
+import { isOrganizedCrimeAlertChannel, organizedCrimeAlertScheduler, refreshOrganizedCrimeAlert } from '../features/torn/faction-oc-alerts';
 import { buildTornFactionUnregisteredEmbeds, getTornFactionUnregisteredReport } from '../features/torn/faction-unregistered';
 import { buildTornProfileEmbed } from '../features/torn/profile';
 import { getTornFactionOverview, getTornProfile, TornApiError } from '../features/torn/service';
@@ -15,6 +11,7 @@ import type { PostgresStorage } from '../lib/postgres-storage';
 interface FactionCommandContext {
 	storage: PostgresStorage | null;
 	tornFactionChannelId: string | undefined;
+	tornOcAlertChannelId?: string;
 	logger: {
 		error(error: unknown, message: string): void;
 	};
@@ -39,15 +36,60 @@ const tornSubcommands = {
 	},
 	factionOrganizedCrime: {
 		name: 'faction organized-crime',
-		description: 'Post crimes with player and item names, slot status, pass rates, and category counts.'
+		description: 'Refresh the organized-crime alert channel and start its 60-second updates.'
+	},
+	factionOrganizedCrimes: {
+		name: 'faction organized-crimes',
+		description: 'Refresh the organized-crime alert channel and start its 60-second updates.'
 	}
 } as const;
+
+async function runTornFactionOrganizedCrimeAlert(interaction: ChatInputCommandInteraction, context: FactionCommandContext) {
+	const { tornOcAlertChannelId } = context;
+	if (!tornOcAlertChannelId) {
+		return interaction.reply({
+			content: 'The organized-crime alert channel is not configured by the bot administrator.',
+			flags: 'Ephemeral'
+		});
+	}
+
+	if (!interaction.inGuild() || !interaction.guildId) {
+		return interaction.reply({
+			content: 'Use the organized-crime alert command in the configured Discord server.',
+			flags: 'Ephemeral'
+		});
+	}
+
+	const { guildId } = interaction;
+	await interaction.deferReply({ flags: 'Ephemeral' });
+	try {
+		const channel = await interaction.client.channels.fetch(tornOcAlertChannelId);
+		if (!isOrganizedCrimeAlertChannel(channel) || channel.guildId !== guildId) {
+			throw new TornApiError('The configured organized-crime alert channel is unavailable in this server.');
+		}
+		const refresh = async (discordUserId: string) => {
+			await refreshOrganizedCrimeAlert(channel, context.storage, discordUserId);
+		};
+		organizedCrimeAlertScheduler.start(tornOcAlertChannelId, interaction.user.id, refresh, context.logger);
+		await organizedCrimeAlertScheduler.refreshNow(tornOcAlertChannelId, interaction.user.id);
+		return interaction.editReply(`Refreshed <#${tornOcAlertChannelId}>. Automatic updates are active every 60 seconds until the bot restarts.`);
+	} catch (error) {
+		if (error instanceof TornApiError) return interaction.editReply(error.message);
+
+		context.logger.error(error, 'Failed to refresh the Torn faction organized-crime alert');
+		return interaction.editReply('Could not refresh the organized-crime alert right now. Please try again later.');
+	}
+}
 
 export async function runTornFactionCommand(
 	interaction: ChatInputCommandInteraction,
 	context: FactionCommandContext,
-	view: 'info' | 'members' | 'unregistered' | 'organized-crime'
+	view: 'info' | 'members' | 'unregistered' | 'organized-crime' | 'organized-crimes'
 ) {
+	if (view === 'organized-crime' || view === 'organized-crimes') {
+		return runTornFactionOrganizedCrimeAlert(interaction, context);
+	}
+
 	const { tornFactionChannelId } = context;
 	if (!tornFactionChannelId) {
 		return interaction.reply({
@@ -58,8 +100,7 @@ export async function runTornFactionCommand(
 
 	if (!interaction.inGuild() || interaction.channelId !== tornFactionChannelId) {
 		return interaction.reply({
-			content:
-				'Use `/torn faction info`, `/torn faction members`, `/torn faction unregistered`, or `/torn faction organized-crime` in the configured channel.',
+			content: 'Use `/torn faction info`, `/torn faction members`, or `/torn faction unregistered` in the configured channel.',
 			flags: 'Ephemeral'
 		});
 	}
@@ -76,12 +117,7 @@ export async function runTornFactionCommand(
 	let postedMessages = 0;
 	try {
 		let embeds: EmbedBuilder[];
-		let summaryEmbed: EmbedBuilder | undefined;
-		if (view === 'organized-crime') {
-			const report = await getTornFactionOrganizedCrimes(context.storage, interaction.user.id);
-			embeds = buildTornFactionOrganizedCrimeEmbeds(report);
-			summaryEmbed = buildTornFactionOrganizedCrimeSummaryEmbed(report);
-		} else if (view === 'unregistered') {
+		if (view === 'unregistered') {
 			const report = await getTornFactionUnregisteredReport(context.storage, interaction.user.id);
 			embeds = buildTornFactionUnregisteredEmbeds(report);
 		} else {
@@ -93,18 +129,12 @@ export async function runTornFactionCommand(
 			await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
 			postedMessages += 1;
 		}
-		if (summaryEmbed !== undefined) {
-			await channel.send({ embeds: [summaryEmbed], allowedMentions: { parse: [] } });
-			postedMessages += 1;
-		}
 
 		let content: string;
 		if (view === 'info') {
 			content = `Posted faction information in this channel (${postedMessages} messages).`;
 		} else if (view === 'members') {
 			content = `Posted the faction roster in this channel (${postedMessages} messages).`;
-		} else if (view === 'organized-crime') {
-			content = `Posted the active organized crimes and summary in this channel (${postedMessages} messages).`;
 		} else {
 			content = `Posted the unregistered faction member list in this channel (${postedMessages} messages).`;
 		}
@@ -154,6 +184,9 @@ export class TornCommand extends Command {
 						.addSubcommand((subcommand) =>
 							subcommand.setName('organized-crime').setDescription(tornSubcommands.factionOrganizedCrime.description)
 						)
+						.addSubcommand((subcommand) =>
+							subcommand.setName('organized-crimes').setDescription(tornSubcommands.factionOrganizedCrimes.description)
+						)
 				)
 		);
 	}
@@ -161,7 +194,7 @@ export class TornCommand extends Command {
 	public async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
 		if (interaction.options.getSubcommandGroup(false) === 'faction') {
 			const view = interaction.options.getSubcommand();
-			if (view === 'info' || view === 'members' || view === 'unregistered' || view === 'organized-crime') {
+			if (view === 'info' || view === 'members' || view === 'unregistered' || view === 'organized-crime' || view === 'organized-crimes') {
 				return runTornFactionCommand(interaction, this.container, view);
 			}
 		}

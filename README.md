@@ -12,6 +12,10 @@ tags:
 
 Token is a basic Discord bot template built with Discord.js and the [Sapphire](https://www.sapphirejs.dev/) framework.
 
+## Current development scope
+
+Development is focused on this Railway-hosted Discord bot repository. The separate `token-dashboard` repository is paused until explicitly resumed. Existing dashboard functionality in this bot repository remains unchanged.
+
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/4v1jeR?referralCode=6QmbhN)
 
 ## ✨ Features
@@ -27,7 +31,8 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 - `/torn faction info` to post the paired member's faction details in a permitted channel
 - `/torn faction members` to post the paired member's faction roster in that channel
 - `/torn faction unregistered` to post faction members who have not paired a Torn API key with the bot
-- `/torn faction organized-crime` to post active crimes with player and item names, score level, pass-rate assessments, slot status, and highlighted missing items, followed by recruiting, ongoing, and completed counts and the faction-crimes link
+- `/torn faction organized-crime` and `/torn faction organized-crimes` to post active crimes with player and item names, score level, pass-rate assessments, slot status, and highlighted missing items, followed by recruiting, ongoing, and completed counts and the faction-crimes link
+- Invoking either organized-crime command clears the dedicated alert channel, posts a fresh report, and starts automatic updates every 60 seconds. Each invocation refreshes immediately and restarts the single active countdown. The timer runs until the bot restarts; invoke the command again after a restart.
 - The summary counts recruiting and planning crimes separately (planning is labeled Ongoing because Torn has no `ongoing` API category); completed counts include successful and failed crimes. The caller's key identifies the faction and roster and fetches item names; the Leader's encrypted, registered key (with their consent) is used only for crime requests and must have Faction API Access. Pass rates above 70% are labeled Success, rates below 70% Might Fail, and all show the percentage. No personal inventory endpoints are queried.
 - Optional React dashboard with Discord sign-in, pairing and consent controls, profile lookup, and view-only faction reports.
 
@@ -36,7 +41,8 @@ Token is a basic Discord bot template built with Discord.js and the [Sapphire](h
 - Copy `.env.example` to `.env` and set `DISCORD_TOKEN` to your Discord bot token.
 - Optionally adjust `COMMAND_COOLDOWN_DELAY_MS` and `COMMAND_COOLDOWN_LIMIT` to change the default per-user command cooldown.
 - To enable private Torn account pairing and API requests, configure `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Generate the latter with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and keep it backed up securely; losing it makes stored Torn keys unusable.
-- To enable the faction commands, set `TORN_FACTION_CHANNEL_ID` to the Discord channel ID where public faction information may be posted. The bot rejects uses from other channels. Keep this channel appropriate for publicly sharing member status and last-action data.
+- To enable the faction info, members, and unregistered reports, set `TORN_FACTION_CHANNEL_ID` to the Discord channel ID where public faction information may be posted. Those commands reject uses from other channels. Keep this channel appropriate for publicly sharing member status and last-action data.
+- Organized-crime alerts use `TORN_OC_ALERT_CHANNEL_ID`, defaulting to `1571740567862382693`. The bot must be able to view the channel, read its message history, manage messages, and send messages. Every refresh deletes all messages in this dedicated channel, including messages posted by other users, before publishing the replacement report. The slash command can be invoked in the configured server and posts its report in this alert channel.
 - To enable the website, also set `WEBSITE_ORIGIN` (for example `https://dashboard.example.com`, without a trailing slash), `DISCORD_CLIENT_ID`, and `DISCORD_CLIENT_SECRET`. Register the exact redirect URI `<WEBSITE_ORIGIN>/auth/discord/callback` in the Discord application. All three are required together, as are `DATABASE_URL` and `TORN_ENCRYPTION_KEY`. Only `http://localhost` origins are accepted for non-HTTPS development.
 - These Torn variables are configured once by the bot operator in the bot host's environment; individual Discord users do not need database credentials or an encryption key.
 

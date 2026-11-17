@@ -1,5 +1,11 @@
 # Agent instructions
 
+## Active repository scope
+
+- Keep project development focused on this Railway-hosted Discord bot repository.
+- The separate `token-dashboard` repository is paused. Do not work in it unless the user explicitly resumes that project.
+- Existing dashboard and web functionality in this bot repository remains unchanged; do not remove or extend it solely because the separate repository is paused.
+
 At the start of every session or task, load the Obsidian project context before planning or changing code:
 
 1. If the root `progress.md` is missing, reconstruct it from the Obsidian progress snapshot, this file, the repository, and available session history; do not invent current status.

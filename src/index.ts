@@ -6,6 +6,7 @@ import { GatewayIntentBits } from 'discord.js';
 import { Pool } from 'pg';
 import type { RequestListener, Server } from 'node:http';
 import { loadConfig } from './config';
+import { organizedCrimeAlertScheduler } from './features/torn/faction-oc-alerts';
 import { closeHealthServer, createHealthServer, listenHealthServer } from './lib/health';
 import { PostgresStorage } from './lib/postgres-storage';
 import { setBotPresence } from './lib/presence';
@@ -25,6 +26,7 @@ const main = async () => {
 		const config = loadConfig();
 		container.storage = null;
 		container.tornFactionChannelId = config.tornFactionChannelId;
+		container.tornOcAlertChannelId = config.tornOcAlertChannelId;
 		client = new SapphireClient({
 			caseInsensitiveCommands: true,
 			logger: { instance: logger },
@@ -53,6 +55,7 @@ const main = async () => {
 		registerShutdownHandlers(client, logger, async () => {
 			const errors: unknown[] = [];
 			if (sessionCleanup) clearInterval(sessionCleanup);
+			organizedCrimeAlertScheduler.stopAll();
 			try {
 				await closeHealthServer(server);
 			} catch (error) {

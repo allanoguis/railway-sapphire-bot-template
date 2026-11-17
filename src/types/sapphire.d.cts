@@ -4,5 +4,6 @@ declare module '@sapphire/framework' {
 	interface Container {
 		storage: PostgresStorage | null;
 		tornFactionChannelId: string | undefined;
+		tornOcAlertChannelId: string;
 	}
 }

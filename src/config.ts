@@ -6,6 +6,7 @@ export interface BotConfig {
 	readonly databaseUrl?: string;
 	readonly tornEncryptionKey?: Buffer;
 	readonly tornFactionChannelId?: string;
+	readonly tornOcAlertChannelId: string;
 	readonly website?: WebsiteConfig;
 }
 
@@ -109,6 +110,15 @@ function getTornFactionChannelId(environment: NodeJS.ProcessEnv): string | undef
 	return value;
 }
 
+function getTornOcAlertChannelId(environment: NodeJS.ProcessEnv): string {
+	const value = environment.TORN_OC_ALERT_CHANNEL_ID?.trim() || '1571740567862382693';
+	if (!/^\d{17,20}$/.test(value)) {
+		throw new Error('TORN_OC_ALERT_CHANNEL_ID must be a valid Discord channel ID.');
+	}
+
+	return value;
+}
+
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): BotConfig {
 	const discordToken = environment.DISCORD_TOKEN?.trim();
 
@@ -120,6 +130,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): BotCon
 	const databaseUrl = getDatabaseUrl(environment);
 	const tornEncryptionKey = getTornEncryptionKey(environment);
 	const tornFactionChannelId = getTornFactionChannelId(environment);
+	const tornOcAlertChannelId = getTornOcAlertChannelId(environment);
 	const website = getWebsiteConfig(environment, databaseUrl, tornEncryptionKey);
 
 	return {
@@ -130,6 +141,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): BotCon
 		...(databaseUrl === undefined ? {} : { databaseUrl }),
 		...(tornEncryptionKey === undefined ? {} : { tornEncryptionKey }),
 		...(tornFactionChannelId === undefined ? {} : { tornFactionChannelId }),
+		tornOcAlertChannelId,
 		...(website === undefined ? {} : { website })
 	};
 }
