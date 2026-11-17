@@ -89,6 +89,7 @@ const main = async () => {
 					storage,
 					client,
 					origin: config.website.origin,
+					ownerId: config.website.ownerId,
 					factionChannelId: config.tornFactionChannelId,
 					logError: (message) => logger.error(message)
 				});

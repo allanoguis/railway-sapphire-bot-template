@@ -11,6 +11,7 @@ import { buildTornFactionUnregisteredEmbeds, getTornFactionUnregisteredReport } 
 import { buildTornProfileEmbed } from '../features/torn/profile';
 import { getTornFactionOverview, getTornProfile, TornApiError } from '../features/torn/service';
 import type { PostgresStorage } from '../lib/postgres-storage';
+import { requireTornFeature, type TornFeature } from '../features/torn/switches';
 
 interface FactionCommandContext {
 	storage: PostgresStorage | null;
@@ -162,10 +163,13 @@ export class TornCommand extends Command {
 		if (interaction.options.getSubcommandGroup(false) === 'faction') {
 			const view = interaction.options.getSubcommand();
 			if (view === 'info' || view === 'members' || view === 'unregistered' || view === 'organized-crime') {
+				const feature: TornFeature = `faction-${view}`;
+				if (!(await requireTornFeature(feature, interaction, this.container.storage, this.container.logger))) return;
 				return runTornFactionCommand(interaction, this.container, view);
 			}
 		}
 
+		if (!(await requireTornFeature('profile', interaction, this.container.storage, this.container.logger))) return;
 		const playerIdText = interaction.options.getString('player-id');
 		let playerId: number | undefined;
 		if (playerIdText !== null) {

@@ -3,13 +3,19 @@
 At the start of every session or task, load the Obsidian project context before planning or changing code:
 
 1. If the root `progress.md` is missing, reconstruct it from the Obsidian progress snapshot, this file, the repository, and available session history; do not invent current status.
-2. Run `.\sync-vault-notes.ps1` from the repository root to refresh the mirrored guides. If the vault is elsewhere, set `OBSIDIAN_VAULT_PATH` or pass `-VaultPath`.
-3. Read the vault's `Token Discord Bot Project.md`, then `Project Reference/Agent Instructions.md`, `Project Reference/Project Progress Snapshot.md`, and `Project Reference/Project README.md`. Read relevant notes under `Copilot Sessions/` for historical decisions.
-4. Treat the repository's `AGENTS.md`, `README.md`, and root `progress.md` as canonical. The vault copies are read-only mirrors; historical session notes can be incomplete or stale. Verify implementation details in the current repository and time-sensitive Railway facts against current service data.
+2. Read the vault's `Token Discord Bot Project.md`, then `Project Reference/Agent Instructions.md`, `Project Reference/Project Progress Snapshot.md`, and `Project Reference/Project README.md`. Read relevant notes under `Copilot Sessions/` for historical decisions.
+3. Check the checkout, its Git status, and the timestamps and contents of the local guides and vault mirrors before syncing. Each checkout has its own ignored `progress.md`; a different or stale checkout can overwrite newer vault notes. Reconcile differences instead of blindly syncing.
+4. Treat the active checkout's `AGENTS.md`, `README.md`, and root `progress.md` as its canonical guides. Vault reference copies are mirrors; historical session notes can be incomplete or stale. Verify implementation details in the current checkout and time-sensitive Railway facts against current service data.
 
 After work that changes the project or materially changes its status, update the root `progress.md` with the outcome, validation performed, deployment status, blockers, and next steps. Update `README.md` or this file when their guidance changes, then run `.\sync-vault-notes.ps1` again so the vault mirrors stay current. Do not edit mirrored guide copies directly. Keep the project goal and security constraints clear; do not record credentials, API keys, tokens, connection strings, or other secrets.
 
-`progress.md` is intentionally ignored by Git and is local to this checkout. Do not force-add or commit it. The sync script mirrors it to the configured Obsidian vault on this machine; it does not synchronize `progress.md` to other clones or machines.
+`progress.md` is intentionally ignored by Git and is local to this checkout. Do not force-add or commit it. After reconciling sources, run `.\sync-vault-notes.ps1` from the intended checkout to refresh the mirrors; if the vault is elsewhere, set `OBSIDIAN_VAULT_PATH` or pass `-VaultPath`. The script does not synchronize `progress.md` to other clones or machines.
+
+## Dashboard direction and security
+
+-   The current direction is a personal, owner-only React/TypeScript/Vite dashboard in the separate `D:\GitHub\token-dashboard` repository. The bot and PostgreSQL stay on Railway; the local frontend and Railway SSH tunnel bind to loopback. Vercel, payment processing, and an activation page are not part of the current design.
+-   The bot API enforces owner authentication, CSRF checks, faction channel permissions, and separate website consent for private profiles and leader-key crimes. Preserve those boundaries and fail closed. Website actions and `/unpair` remain available when Discord feature switches are disabled.
+-   The local dashboard-related changes are not necessarily deployed. Verify deployment provenance and live configuration before claiming otherwise. Protect existing work in both bot checkouts and the separate dashboard; do not overwrite or reset it to match a deployment.
 
 ## Product feature categories
 

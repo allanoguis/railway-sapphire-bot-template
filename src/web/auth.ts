@@ -6,6 +6,7 @@ export interface WebsiteConfig {
 	origin: string;
 	clientId: string;
 	clientSecret: string;
+	ownerId: string;
 }
 
 export type WebAuthConfig = { enabled: false } | (WebsiteConfig & { enabled: true; sessionTtlSeconds?: number });
@@ -94,6 +95,7 @@ export class WebAuth {
 	private readonly pending = new Map<string, PendingAuthorization>();
 	private readonly clientId: string;
 	private readonly clientSecret: string;
+	private readonly ownerId: string;
 	private readonly storage: WebsiteStorage;
 	private cleanupTimer?: ReturnType<typeof setTimeout>;
 
@@ -105,6 +107,7 @@ export class WebAuth {
 		if (
 			!config.clientId ||
 			!config.clientSecret ||
+			!config.ownerId ||
 			!Number.isSafeInteger(this.sessionTtlSeconds) ||
 			this.sessionTtlSeconds < 1 ||
 			this.sessionTtlSeconds > 2592000
@@ -113,6 +116,7 @@ export class WebAuth {
 		}
 		this.clientId = config.clientId;
 		this.clientSecret = config.clientSecret;
+		this.ownerId = config.ownerId;
 	}
 
 	public startOAuth(request: IncomingMessage, response: ServerResponse): void {
@@ -207,6 +211,7 @@ export class WebAuth {
 				user.username.length > 128
 			)
 				throw new WebAuthError(400, 'Authentication failed.');
+			if (user.id !== this.ownerId) throw new WebAuthError(403, 'Only the bot owner can use the dashboard.');
 			const oldToken = readCookie(request, SESSION_COOKIE);
 			if (oldToken) await this.storage.deleteSession(oldToken);
 			const sessionToken = randomToken();
@@ -227,7 +232,8 @@ export class WebAuth {
 
 	public async getSession(request: IncomingMessage): Promise<WebsiteSession | null> {
 		const token = readCookie(request, SESSION_COOKIE);
-		return token ? this.storage.getSession(token) : null;
+		const session = token ? await this.storage.getSession(token) : null;
+		return session?.user.id === this.ownerId ? session : null;
 	}
 
 	public async getAuthResponse(request: IncomingMessage): Promise<AuthResponse> {

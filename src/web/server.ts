@@ -3,6 +3,7 @@ import type { Client } from 'discord.js';
 import type { JsonValue, PostgresStorage } from '../lib/postgres-storage';
 import { getTornFactionOrganizedCrimes } from '../features/torn/faction-oc';
 import { getTornFactionUnregisteredReport } from '../features/torn/faction-unregistered';
+import { isTornFeature } from '../features/torn/switches';
 import {
 	getTornFactionOverview,
 	getTornProfile,
@@ -12,7 +13,6 @@ import {
 	verifyTornAccount
 } from '../features/torn/service';
 import { FactionAccessError, requireFactionChannelAccess } from './permissions';
-import { serveWebsite } from './static';
 import { WebAuthError } from './auth';
 import type { WebAuth } from './auth';
 import type { WebsiteStorage } from './storage';
@@ -23,6 +23,7 @@ interface DashboardDependencies {
 	storage: PostgresStorage;
 	client: Client;
 	origin: string;
+	ownerId: string;
 	factionChannelId: string | undefined;
 	logError: (message: string) => void;
 }
@@ -96,24 +97,37 @@ export function createDashboardServer(deps: DashboardDependencies): RequestListe
 				return;
 			}
 			if (!url.pathname.startsWith('/api/')) {
-				await serveWebsite(request, response, url.pathname);
-				return;
+				throw new RequestError(404, 'Not found.');
 			}
 
 			const session = await deps.auth.getSession(request);
+			if (session && session.user.id !== deps.ownerId) throw new RequestError(403, 'Only the bot owner can use the dashboard.');
 			if (url.pathname === '/api/session' && request.method === 'GET') {
 				if (!session) {
-					json(response, 200, { data: { user: null, csrfToken: null, paired: false, consent: { profile: false, crimes: false } } });
+					json(response, 200, {
+						data: { user: null, csrfToken: null, paired: false, consent: { profile: false, crimes: false }, isOwner: false }
+					});
 					return;
 				}
 				limit(`user:${session.user.id}`);
 				const paired = (await deps.storage.getTornApi(session.user.id)) !== undefined;
 				const consent = paired ? await deps.websiteStorage.getConsent(session.user.id) : { profile: false, crimes: false };
-				json(response, 200, { data: { user: session.user, csrfToken: session.csrfToken, paired, consent } });
+				json(response, 200, {
+					data: {
+						user: session.user,
+						csrfToken: session.csrfToken,
+						paired,
+						consent,
+						isOwner: session.user.id === deps.ownerId
+					}
+				});
 				return;
 			}
 			if (!session) throw new RequestError(401, 'Sign in with Discord to continue.');
 			limit(`user:${session.user.id}`);
+			if (url.pathname === '/api/owner/features' && session.user.id !== deps.ownerId) {
+				throw new RequestError(403, 'Only the bot owner can manage feature switches.');
+			}
 			if (request.method === 'POST') {
 				if (request.headers.origin !== deps.origin || !deps.auth.checkCsrf(request, session)) {
 					throw new RequestError(403, 'The request could not be verified. Reload the page and try again.');
@@ -121,6 +135,15 @@ export function createDashboardServer(deps: DashboardDependencies): RequestListe
 				if (url.pathname === '/api/logout') {
 					await deps.auth.logout(request, response);
 					json(response, 200, { data: { loggedOut: true } });
+					return;
+				}
+				if (url.pathname === '/api/owner/features') {
+					const payload = await body(request);
+					if (!isTornFeature(payload.feature) || typeof payload.enabled !== 'boolean') {
+						throw new RequestError(400, 'Specify a valid feature and enabled state.');
+					}
+					await deps.storage.setTornFeatureEnabled(payload.feature, payload.enabled);
+					json(response, 200, { data: await deps.storage.getTornFeatureSettings() });
 					return;
 				}
 				if (url.pathname === '/api/pair') {
@@ -154,6 +177,10 @@ export function createDashboardServer(deps: DashboardDependencies): RequestListe
 				}
 			}
 			if (request.method !== 'GET') throw new RequestError(405, 'Method not allowed.');
+			if (url.pathname === '/api/owner/features') {
+				json(response, 200, { data: await deps.storage.getTornFeatureSettings() });
+				return;
+			}
 			if (url.pathname === '/api/profile') {
 				const text = url.searchParams.get('playerId');
 				if (text !== null && (!/^\d{1,15}$/.test(text) || !Number.isSafeInteger(Number(text)) || Number(text) < 1)) {

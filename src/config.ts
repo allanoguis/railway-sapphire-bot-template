@@ -13,6 +13,7 @@ export interface WebsiteConfig {
 	readonly origin: string;
 	readonly clientId: string;
 	readonly clientSecret: string;
+	readonly ownerId: string;
 }
 
 function getWebsiteConfig(
@@ -23,10 +24,14 @@ function getWebsiteConfig(
 	const origin = environment.WEBSITE_ORIGIN?.trim();
 	const clientId = environment.DISCORD_CLIENT_ID?.trim();
 	const clientSecret = environment.DISCORD_CLIENT_SECRET?.trim();
+	const ownerId = environment.WEBSITE_OWNER_DISCORD_ID?.trim();
+	if (ownerId && !/^\d{17,20}$/.test(ownerId)) {
+		throw new Error('WEBSITE_OWNER_DISCORD_ID must be a valid Discord user ID.');
+	}
 	if (!origin && !clientId && !clientSecret) return undefined;
-	if (!origin || !clientId || !clientSecret || !databaseUrl || !encryptionKey) {
+	if (!origin || !clientId || !clientSecret || !ownerId || !databaseUrl || !encryptionKey) {
 		throw new Error(
-			'Website configuration requires WEBSITE_ORIGIN, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DATABASE_URL and TORN_ENCRYPTION_KEY.'
+			'Website configuration requires WEBSITE_ORIGIN, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, WEBSITE_OWNER_DISCORD_ID, DATABASE_URL and TORN_ENCRYPTION_KEY.'
 		);
 	}
 	let parsed: URL;
@@ -44,7 +49,7 @@ function getWebsiteConfig(
 	) {
 		throw new Error('WEBSITE_ORIGIN must be an HTTPS origin or an HTTP localhost origin, and DISCORD_CLIENT_ID must be a valid Discord ID.');
 	}
-	return { origin, clientId, clientSecret };
+	return { origin, clientId, clientSecret, ownerId };
 }
 
 function getPositiveInteger(environment: NodeJS.ProcessEnv, name: string, defaultValue: number): number {
