@@ -35,10 +35,6 @@ const tornSubcommands = {
 		name: 'faction unregistered',
 		description: 'Post faction members without a Torn API account paired with the bot.'
 	},
-	factionOrganizedCrime: {
-		name: 'faction organized-crime',
-		description: 'Refresh the organized-crime alert channel and start its 60-second updates.'
-	},
 	factionOrganizedCrimes: {
 		name: 'faction organized-crimes',
 		description: 'Refresh the organized-crime alert channel and start its 60-second updates.'
@@ -85,9 +81,9 @@ async function runTornFactionOrganizedCrimeAlert(interaction: ChatInputCommandIn
 export async function runTornFactionCommand(
 	interaction: ChatInputCommandInteraction,
 	context: FactionCommandContext,
-	view: 'info' | 'members' | 'unregistered' | 'organized-crime' | 'organized-crimes'
+	view: 'info' | 'members' | 'unregistered' | 'organized-crimes'
 ) {
-	if (view === 'organized-crime' || view === 'organized-crimes') {
+	if (view === 'organized-crimes') {
 		return runTornFactionOrganizedCrimeAlert(interaction, context);
 	}
 
@@ -183,9 +179,6 @@ export class TornCommand extends Command {
 							subcommand.setName('unregistered').setDescription(tornSubcommands.factionUnregistered.description)
 						)
 						.addSubcommand((subcommand) =>
-							subcommand.setName('organized-crime').setDescription(tornSubcommands.factionOrganizedCrime.description)
-						)
-						.addSubcommand((subcommand) =>
 							subcommand.setName('organized-crimes').setDescription(tornSubcommands.factionOrganizedCrimes.description)
 						)
 				)
@@ -195,8 +188,8 @@ export class TornCommand extends Command {
 	public async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
 		if (interaction.options.getSubcommandGroup(false) === 'faction') {
 			const view = interaction.options.getSubcommand();
-			if (view === 'info' || view === 'members' || view === 'unregistered' || view === 'organized-crime') {
-				const feature: TornFeature = `faction-${view}`;
+			if (view === 'info' || view === 'members' || view === 'unregistered' || view === 'organized-crimes') {
+				const feature: TornFeature = view === 'organized-crimes' ? 'faction-organized-crime' : `faction-${view}`;
 				if (!(await requireTornFeature(feature, interaction, this.container.storage, this.container.logger))) return;
 				return runTornFactionCommand(interaction, this.container, view);
 			}

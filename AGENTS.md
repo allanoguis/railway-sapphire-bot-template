@@ -2,9 +2,9 @@
 
 ## Active repository scope
 
-- Keep project development focused on this Railway-hosted Discord bot repository.
-- The separate `token-dashboard` repository is paused. Do not work in it unless the user explicitly resumes that project.
-- Existing dashboard and web functionality in this bot repository remains unchanged; do not remove or extend it solely because the separate repository is paused.
+-   Keep project development focused on this Railway-hosted Discord bot repository.
+-   The separate `token-dashboard` repository is paused. Do not work in it unless the user explicitly resumes that project.
+-   Existing dashboard and web functionality in this bot repository remains unchanged; do not remove or extend it solely because the separate repository is paused.
 
 At the start of every session or task, load the Obsidian project context before planning or changing code:
 
@@ -19,7 +19,7 @@ After work that changes the project or materially changes its status, update the
 
 ## Dashboard direction and security
 
--   The current direction is a personal, owner-only React/TypeScript/Vite dashboard in the separate `D:\GitHub\token-dashboard` repository. The bot and PostgreSQL stay on Railway; the local frontend and Railway SSH tunnel bind to loopback. Vercel, payment processing, and an activation page are not part of the current design.
+-   Existing dashboard API functionality remains in this bot repository; the separate `token-dashboard` frontend repository is paused until the user explicitly resumes work there. Keep current development focused on this Railway-hosted Discord bot.
 -   The bot API enforces owner authentication, CSRF checks, faction channel permissions, and separate website consent for private profiles and leader-key crimes. Preserve those boundaries and fail closed. Website actions and `/unpair` remain available when Discord feature switches are disabled.
 -   The local dashboard-related changes are not necessarily deployed. Verify deployment provenance and live configuration before claiming otherwise. Protect existing work in both bot checkouts and the separate dashboard; do not overwrite or reset it to match a deployment.
 
@@ -39,7 +39,7 @@ After work that changes the project or materially changes its status, update the
 ## Faction output policy
 
 -   Do not include faction tag-image data in future faction command output, embeds, examples, or documentation. The faction's text tag is separate and may still be included.
--   `/torn faction organized-crime` uses the caller's paired key to identify the faction and its roster, and to fetch public item names with Torn API v2 `/torn/{ids}/items`. It uses the registered Leader's encrypted, PostgreSQL-stored key only for faction crime requests, with the Leader's consent. Never log or expose the decrypted key. The Leader's key must have Faction API Access; explain this requirement when Torn denies the request. Use `cat=available` for crime details (`recruiting` + `planning`), and count `recruiting`, `planning` (shown as Ongoing), and `completed` separately for the final summary. The API has no `ongoing` category, and `completed` includes successful and failed crimes. Resolve player names from the faction roster; show pass rates as Success above 70%, Might Fail below 70%, and the percentage alone at exactly 70%. Label slot outcomes Status, use item names instead of IDs, and do not make separate personal-inventory requests. Discord subcommand names cannot contain spaces, so use the hyphenated `organized-crime` name.
+-   `/torn faction organized-crimes` uses the caller's paired key to identify the faction and its roster, and to fetch public item names with Torn API v2 `/torn/{ids}/items`. It uses the registered Leader's encrypted, PostgreSQL-stored key only for faction crime requests, with the Leader's consent. Never log or expose the decrypted key. The Leader's key must have Faction API Access; explain this requirement when Torn denies the request. Use `cat=available` for crime details (`recruiting` + `planning`), and count `recruiting`, `planning` (shown as Ongoing), and `completed` separately for the final summary. The API has no `ongoing` category, and `completed` includes successful and failed crimes. Resolve player names from the faction roster; show pass rates as Success above 70%, Might Fail below 70%, and the percentage alone at exactly 70%. Label slot outcomes Status, use item names instead of IDs, and do not make separate personal-inventory requests. Discord subcommand names cannot contain spaces, so use the hyphenated `organized-crimes` name.
 
 ## Test file policy
 
