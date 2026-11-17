@@ -1,5 +1,10 @@
 import type { EmbedBuilder } from 'discord.js';
-import { buildTornFactionOrganizedCrimeEmbeds, buildTornFactionOrganizedCrimeSummaryEmbed, getTornFactionOrganizedCrimes } from './faction-oc';
+import {
+	buildTornFactionOrganizedCrimeEmbeds,
+	buildTornFactionOrganizedCrimeMissingItemEmbeds,
+	buildTornFactionOrganizedCrimeSummaryEmbed,
+	getTornFactionOrganizedCrimes
+} from './faction-oc';
 import type { TornStorage } from './service';
 
 const DELETE_PAGE_SIZE = 100;
@@ -82,7 +87,11 @@ export async function refreshOrganizedCrimeAlert(
 	discordUserId: string
 ): Promise<number> {
 	const report = await getTornFactionOrganizedCrimes(storage, discordUserId);
-	const embeds = [...buildTornFactionOrganizedCrimeEmbeds(report), buildTornFactionOrganizedCrimeSummaryEmbed(report)];
+	const embeds = [
+		...buildTornFactionOrganizedCrimeEmbeds(report),
+		...buildTornFactionOrganizedCrimeMissingItemEmbeds(report),
+		buildTornFactionOrganizedCrimeSummaryEmbed(report)
+	];
 	await clearOrganizedCrimeAlertChannel(channel);
 
 	for (const embed of embeds) {

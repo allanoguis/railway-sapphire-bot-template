@@ -146,12 +146,7 @@ function buildCrimeLines(crime: TornFactionOrganizedCrime): string[] {
 
 		const member = displayText(slot.user.name, 'Unknown player');
 		const status = displayStatus(slot.user.outcome);
-		const itemName = slot.itemRequirement ? displayText(slot.itemRequirement.name, 'Unknown item') : undefined;
-		if (slot.itemRequirement && !slot.itemRequirement.isAvailable) {
-			lines.push(`**MISSING ITEM** - **${member}** in ${position} needs **${itemName}** | ${checkpointPassRate} | Status: ${status}`);
-			continue;
-		}
-
+		const itemName = slot.itemRequirement?.isAvailable ? displayText(slot.itemRequirement.name, 'Unknown item') : undefined;
 		const item = itemName ? ` | Item ${itemName} available` : '';
 		lines.push(`- ${position}: ${member}${item} | ${checkpointPassRate} | Status: ${status}`);
 	}
@@ -175,12 +170,34 @@ export function buildTornFactionOrganizedCrimeEmbeds(report: TornFactionOrganize
 	const pages = chunkLines(lines);
 	return pages.map((page, index) =>
 		new EmbedBuilder()
-			.setColor(page.some((line) => line.includes('**MISSING ITEM**')) ? 0xed4245 : 0xe3cd24)
+			.setColor(0xe3cd24)
 			.setTitle(
 				`Active organized crimes for ${factionName} (${report.crimes.length})${pages.length > 1 ? ` - ${index + 1}/${pages.length}` : ''}`
 			)
 			.setURL(factionUrl)
 			.setDescription(page.join('\n').trim())
+	);
+}
+
+export function buildTornFactionOrganizedCrimeMissingItemEmbeds(report: TornFactionOrganizedCrimes): EmbedBuilder[] {
+	const lines = report.crimes.flatMap((crime) =>
+		(crime.slots ?? []).flatMap((slot) => {
+			if (!slot.user || !slot.itemRequirement || slot.itemRequirement.isAvailable) return [];
+			const crimeName = displayText(crime.name);
+			const member = displayText(slot.user.name, 'Unknown player');
+			const position = displayText(slot.positionInfo?.label ?? slot.position);
+			const itemName = displayText(slot.itemRequirement.name, 'Unknown item');
+			return [`**${crimeName}** (OC ${crime.id}) - **${member}** in ${position} needs **${itemName}**`];
+		})
+	);
+	const pages = chunkLines(lines);
+	return pages.map((page, index) =>
+		new EmbedBuilder()
+			.setColor(0xed4245)
+			.setTitle(
+				`Missing items for ${displayText(report.faction.name, 'Torn faction')}${pages.length > 1 ? ` - ${index + 1}/${pages.length}` : ''}`
+			)
+			.setDescription(page.join('\n'))
 	);
 }
 
