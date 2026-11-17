@@ -4,7 +4,7 @@ import type { TornStorage } from './service';
 
 const DELETE_PAGE_SIZE = 100;
 const BULK_DELETE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
-export const ORGANIZED_CRIME_REFRESH_INTERVAL_MS = 60_000;
+export const ORGANIZED_CRIME_REFRESH_INTERVAL_MS = 3_600_000;
 
 export interface OrganizedCrimeAlertMessage {
 	id: string;

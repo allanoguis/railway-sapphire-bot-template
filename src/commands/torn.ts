@@ -37,7 +37,7 @@ const tornSubcommands = {
 	},
 	factionOrganizedCrimes: {
 		name: 'faction organized-crimes',
-		description: 'Refresh the organized-crime alert channel and start its 60-second updates.'
+		description: 'Refresh the organized-crime alert channel and start its hourly updates.'
 	}
 } as const;
 
@@ -69,7 +69,7 @@ async function runTornFactionOrganizedCrimeAlert(interaction: ChatInputCommandIn
 		};
 		organizedCrimeAlertScheduler.start(tornOcAlertChannelId, interaction.user.id, refresh, context.logger);
 		await organizedCrimeAlertScheduler.refreshNow(tornOcAlertChannelId, interaction.user.id);
-		return interaction.editReply(`Refreshed <#${tornOcAlertChannelId}>. Automatic updates are active every 60 seconds until the bot restarts.`);
+		return interaction.editReply(`Refreshed <#${tornOcAlertChannelId}>. Automatic updates are active hourly until the bot restarts.`);
 	} catch (error) {
 		if (error instanceof TornApiError) return interaction.editReply(error.message);
 
