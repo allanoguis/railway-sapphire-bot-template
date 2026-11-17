@@ -32,12 +32,12 @@ export class PairCommand extends Command {
 				.addFields(
 					{
 						name: 'Data storage',
-						value: 'Your API key is stored encrypted in this bot’s PostgreSQL database until you use `/unpair`.',
+						value: 'Your API key is stored encrypted use `/unpair`.',
 						inline: false
 					},
 					{
 						name: 'Data sharing',
-						value: 'Your key is never shown to other users. Other paired users can request your profile by player ID and privately view your bars, cooldowns and battle stats using your key. With the faction leader’s consent, the leader’s key may also retrieve organized crimes for a report in the configured faction channel. The optional website requires separate, revocable opt-ins for these uses.',
+						value: 'Your key is never shown to other users.',
 						inline: false
 					},
 					{

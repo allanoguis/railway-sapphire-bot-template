@@ -180,25 +180,27 @@ export function buildTornFactionOrganizedCrimeEmbeds(report: TornFactionOrganize
 }
 
 export function buildTornFactionOrganizedCrimeMissingItemEmbeds(report: TornFactionOrganizedCrimes): EmbedBuilder[] {
-	const lines = report.crimes.flatMap((crime) =>
-		(crime.slots ?? []).flatMap((slot) => {
-			if (!slot.user || !slot.itemRequirement || slot.itemRequirement.isAvailable) return [];
-			const crimeName = displayText(crime.name);
-			const member = displayText(slot.user.name, 'Unknown player');
+	const members = new Map<number, { name: string; lines: string[] }>();
+	for (const crime of report.crimes) {
+		for (const slot of crime.slots ?? []) {
+			if (!slot.user || !slot.itemRequirement || slot.itemRequirement.isAvailable) continue;
+			const member = members.get(slot.user.id) ?? { name: displayText(slot.user.name, 'Unknown player'), lines: [] };
 			const position = displayText(slot.positionInfo?.label ?? slot.position);
 			const itemName = displayText(slot.itemRequirement.name, 'Unknown item');
-			return [`**${crimeName}** (OC ${crime.id}) - **${member}** in ${position} needs **${itemName}**`];
-		})
-	);
-	const pages = chunkLines(lines);
-	return pages.map((page, index) =>
-		new EmbedBuilder()
-			.setColor(0xed4245)
-			.setTitle(
-				`Missing items for ${displayText(report.faction.name, 'Torn faction')}${pages.length > 1 ? ` - ${index + 1}/${pages.length}` : ''}`
-			)
-			.setDescription(page.join('\n'))
-	);
+			member.lines.push(`**${displayText(crime.name)}** (OC ${crime.id}) - ${position} needs **${itemName}**`);
+			members.set(slot.user.id, member);
+		}
+	}
+
+	return [...members.values()].flatMap((member) => {
+		const pages = chunkLines(member.lines);
+		return pages.map((page, index) =>
+			new EmbedBuilder()
+				.setColor(0xed4245)
+				.setTitle(`Missing items for ${member.name}${pages.length > 1 ? ` - ${index + 1}/${pages.length}` : ''}`)
+				.setDescription(page.join('\n'))
+		);
+	});
 }
 
 export function buildTornFactionOrganizedCrimeSummaryEmbed(report: TornFactionOrganizedCrimes): EmbedBuilder {
