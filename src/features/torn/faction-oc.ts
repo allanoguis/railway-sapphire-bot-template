@@ -187,7 +187,7 @@ export function buildTornFactionOrganizedCrimeMissingItemEmbeds(report: TornFact
 			const member = members.get(slot.user.id) ?? { name: displayText(slot.user.name, 'Unknown player'), lines: [] };
 			const position = displayText(slot.positionInfo?.label ?? slot.position);
 			const itemName = displayText(slot.itemRequirement.name, 'Unknown item');
-			member.lines.push(`**${displayText(crime.name)}** (OC ${crime.id}) - ${position} needs **${itemName}**`);
+			member.lines.push(`**${displayText(crime.name)}** - ${position} needs **${itemName}**`);
 			members.set(slot.user.id, member);
 		}
 	}
