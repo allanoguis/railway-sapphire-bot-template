@@ -116,7 +116,7 @@ export function buildTornFactionWarHistoryEmbeds(history: TornFactionWarHistory)
 	if (history.wars.length === 0) {
 		return [
 			new EmbedBuilder()
-				.setColor(0x5865f2)
+				.setColor(0xed4245)
 				.setTitle(factionName)
 				.setURL(factionUrl)
 				.setDescription('No ranked-war history was returned.')
@@ -146,9 +146,9 @@ export function buildTornFactionWarHistoryEmbeds(history: TornFactionWarHistory)
 				value: [
 					`War ID: ${war.id}`,
 					participants,
+					`Target: ${war.target.toLocaleString()}`,
 					`Started: ${displayTimestamp(war.start)}`,
-					`Ended: ${displayTimestamp(war.end)}`,
-					`Target: ${war.target.toLocaleString()}`
+					`Ended: ${displayTimestamp(war.end)}`
 				].join('\n')
 			});
 		}
