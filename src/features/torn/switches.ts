@@ -9,7 +9,8 @@ export const tornFeatures = [
 	'faction-members',
 	'faction-unregistered',
 	'faction-organized-crime',
-	'faction-war-history'
+	'faction-war-history',
+	'faction-war-payout'
 ] as const;
 
 export type TornFeature = (typeof tornFeatures)[number];
