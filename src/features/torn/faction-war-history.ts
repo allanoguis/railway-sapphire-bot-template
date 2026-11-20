@@ -128,7 +128,7 @@ export function buildTornFactionWarHistoryEmbeds(history: TornFactionWarHistory)
 	for (let offset = 0; offset < history.wars.length; offset += 5) {
 		const wars = history.wars.slice(offset, offset + 5);
 		const embed = new EmbedBuilder()
-			.setColor(0x5865f2)
+			.setColor(0xe3cd24)
 			.setTitle(`${factionName}${history.wars.length > 5 ? ` - ${Math.floor(offset / 5) + 1}/${Math.ceil(history.wars.length / 5)}` : ''}`)
 			.setURL(factionUrl);
 		if (offset === 0)
@@ -145,8 +145,8 @@ export function buildTornFactionWarHistoryEmbeds(history: TornFactionWarHistory)
 				name: `${matchup.slice(0, 256 - result.length - 3)} - ${result}`,
 				value: [
 					`War ID: ${war.id}`,
-					participants,
 					`Target: ${war.target.toLocaleString()}`,
+					participants,
 					`Started: ${displayTimestamp(war.start)}`,
 					`Ended: ${displayTimestamp(war.end)}`
 				].join('\n')
