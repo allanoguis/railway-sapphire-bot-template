@@ -287,8 +287,13 @@ async function requestSelection(
 	return requestTornPayload(url);
 }
 
-export async function requestFactionEndpoint(apiKey: string, endpoint: string): Promise<Record<string, unknown>> {
+export async function requestFactionEndpoint(
+	apiKey: string,
+	endpoint: string,
+	params?: Record<string, string | number>
+): Promise<Record<string, unknown>> {
 	const url = new URL(`https://api.torn.com/v2/faction/${endpoint}`);
+	for (const [key, value] of Object.entries(params ?? {})) url.searchParams.set(key, String(value));
 	url.searchParams.set('key', apiKey);
 	return requestTornPayload(url);
 }

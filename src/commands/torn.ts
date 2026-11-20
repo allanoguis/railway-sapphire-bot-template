@@ -4,6 +4,7 @@ import type { ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds } from '../features/torn/faction';
 import { isOrganizedCrimeAlertChannel, organizedCrimeAlertScheduler, refreshOrganizedCrimeAlert } from '../features/torn/faction-oc-alerts';
 import { buildTornFactionUnregisteredEmbeds, getTornFactionUnregisteredReport } from '../features/torn/faction-unregistered';
+import { buildTornFactionWarHistoryEmbeds, getTornFactionWarHistory } from '../features/torn/faction-war-history';
 import { buildTornProfileEmbed } from '../features/torn/profile';
 import { getTornFactionOverview, getTornProfile, TornApiError } from '../features/torn/service';
 import type { PostgresStorage } from '../lib/postgres-storage';
@@ -38,6 +39,10 @@ const tornSubcommands = {
 	factionOrganizedCrimes: {
 		name: 'faction organized-crimes',
 		description: 'Refresh the organized-crime alert channel and start its hourly updates.'
+	},
+	warHistory: {
+		name: 'war history',
+		description: 'Post the faction’s 20 most recent ranked wars in the configured faction channel.'
 	}
 } as const;
 
@@ -148,6 +153,52 @@ export async function runTornFactionCommand(
 	}
 }
 
+export async function runTornWarHistoryCommand(interaction: ChatInputCommandInteraction, context: FactionCommandContext) {
+	const { tornFactionChannelId } = context;
+	if (!tornFactionChannelId) {
+		return interaction.reply({
+			content: 'The faction command is not configured by the bot administrator.',
+			flags: 'Ephemeral'
+		});
+	}
+
+	if (!interaction.inGuild() || interaction.channelId !== tornFactionChannelId) {
+		return interaction.reply({
+			content: 'Use `/torn war history` in the configured faction channel.',
+			flags: 'Ephemeral'
+		});
+	}
+
+	const { channel } = interaction;
+	if (!channel?.isTextBased() || !('send' in channel)) {
+		return interaction.reply({
+			content: 'The configured faction channel cannot receive messages.',
+			flags: 'Ephemeral'
+		});
+	}
+
+	await interaction.deferReply({ flags: 'Ephemeral' });
+	let postedMessages = 0;
+	try {
+		const history = await getTornFactionWarHistory(context.storage, interaction.user.id);
+		const embeds = buildTornFactionWarHistoryEmbeds(history);
+		for (const embed of embeds) {
+			await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
+			postedMessages += 1;
+		}
+		return interaction.editReply(`Posted ranked-war history in this channel (${postedMessages} messages).`);
+	} catch (error) {
+		if (error instanceof TornApiError) return interaction.editReply(error.message);
+
+		context.logger.error(error, 'Failed to post Torn faction war history');
+		return interaction.editReply(
+			postedMessages > 0
+				? 'Could not finish posting the faction war history. Some messages may already have been sent.'
+				: 'Could not post the faction war history right now. Please try again later.'
+		);
+	}
+}
+
 @ApplyOptions<Command.Options>({
 	name: 'torn',
 	description: 'View Torn profiles, faction information, and member pairing status.'
@@ -182,10 +233,21 @@ export class TornCommand extends Command {
 							subcommand.setName('organized-crimes').setDescription(tornSubcommands.factionOrganizedCrimes.description)
 						)
 				)
+				.addSubcommandGroup((group) =>
+					group
+						.setName('war')
+						.setDescription('View ranked-war information for your current faction.')
+						.addSubcommand((subcommand) => subcommand.setName('history').setDescription(tornSubcommands.warHistory.description))
+				)
 		);
 	}
 
 	public async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
+		if (interaction.options.getSubcommandGroup(false) === 'war' && interaction.options.getSubcommand() === 'history') {
+			if (!(await requireTornFeature('faction-war-history', interaction, this.container.storage, this.container.logger))) return;
+			return runTornWarHistoryCommand(interaction, this.container);
+		}
+
 		if (interaction.options.getSubcommandGroup(false) === 'faction') {
 			const view = interaction.options.getSubcommand();
 			if (view === 'info' || view === 'members' || view === 'unregistered' || view === 'organized-crimes') {
