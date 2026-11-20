@@ -139,10 +139,14 @@ export function buildTornFactionWarHistoryEmbeds(history: TornFactionWarHistory)
 		for (const war of wars) {
 			const own = war.factions.find((entry) => entry.id === history.faction.id);
 			const opponents = war.factions.filter((entry) => entry.id !== history.faction.id);
-			const participants = [...(own ? [own] : []), ...opponents].map(displayFaction).join(' vs ');
+			const orderedFactions = [...(own ? [own] : []), ...opponents];
+			const participants = orderedFactions.map(displayFaction).join(' vs ');
+			const result = resultLabel(war, history.faction.id);
+			const matchup = orderedFactions.map((faction) => displayText(faction.name)).join(' vs ');
 			embed.addFields({
-				name: `War ${war.id} - ${resultLabel(war, history.faction.id)}`,
+				name: `${matchup.slice(0, 256 - result.length - 3)} - ${result}`,
 				value: [
+					`War ID: ${war.id}`,
 					participants,
 					`Started: ${displayTimestamp(war.start)}`,
 					`Ended: ${displayTimestamp(war.end)}`,
