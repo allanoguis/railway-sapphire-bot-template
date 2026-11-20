@@ -104,7 +104,15 @@ export function buildTornFactionInfoEmbeds(overview: TornFactionOverview): Embed
 				name: `Wars and pacts${pages.length > 1 ? ` (${index + 1}/${pages.length})` : ''}`,
 				value: page.join('\n')
 			})
-		)
+		),
+		{
+			name: 'War History Summary',
+			value: [
+				`Current Rank: ${displayText(overview.warHistorySummary.currentRank)}`,
+				`Wars Won: ${overview.warHistorySummary.warsWon.toLocaleString()}`,
+				`Wars Lost: ${overview.warHistorySummary.warsLost.toLocaleString()}`
+			].join('\n')
+		}
 	];
 	if (overview.territories.length === 0) fields.push({ name: 'Territories', value: 'None', inline: false });
 	if (overview.wars.length === 0 && overview.pacts.length === 0) {

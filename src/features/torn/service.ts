@@ -67,6 +67,13 @@ export interface TornFactionBasic {
 	days_old: number;
 	members: number;
 	best_chain: number;
+	rank: {
+		level: number;
+		name: string;
+		division: number;
+		position: number;
+		wins: number;
+	};
 }
 
 export interface TornFactionMember {
@@ -100,7 +107,14 @@ export interface TornFactionOverview {
 	wars: TornFactionWar[];
 	pacts: Array<{ factionId: number; factionName: string; until: number }>;
 	territories: string[];
+	warHistorySummary: {
+		currentRank: string;
+		warsWon: number;
+		warsLost: number;
+	};
 }
+
+export const tornRankedWarHistoryLimit = 20;
 
 interface StoredCredential {
 	version: 1;
@@ -366,6 +380,8 @@ function requiredString(record: Record<string, unknown>, key: string): string {
 
 export function normalizeFactionBasic(payload: Record<string, unknown>): TornFactionBasic {
 	const basic = readSelection(payload, 'basic');
+	const { rank } = basic;
+	if (!isRecord(rank)) throw new TornApiError('Torn returned unexpected faction data. Please try again later.');
 	return {
 		id: requiredNumber(basic, 'id'),
 		name: requiredString(basic, 'name'),
@@ -375,7 +391,14 @@ export function normalizeFactionBasic(payload: Record<string, unknown>): TornFac
 		respect: requiredNumber(basic, 'respect'),
 		days_old: requiredNumber(basic, 'days_old'),
 		members: requiredNumber(basic, 'members'),
-		best_chain: requiredNumber(basic, 'best_chain')
+		best_chain: requiredNumber(basic, 'best_chain'),
+		rank: {
+			level: requiredNumber(rank, 'level'),
+			name: requiredString(rank, 'name'),
+			division: requiredNumber(rank, 'division'),
+			position: requiredNumber(rank, 'position'),
+			wins: requiredNumber(rank, 'wins')
+		}
 	};
 }
 
@@ -456,6 +479,24 @@ function normalizeFactionWars(payload: Record<string, unknown>): {
 		};
 	});
 	return { wars, pacts };
+}
+
+function normalizeFactionWarHistorySummary(payload: Record<string, unknown>, factionId: number) {
+	const entries = payload.rankedwars;
+	if (!Array.isArray(entries)) throw new TornApiError('Torn returned unexpected faction war history. Please try again later.');
+	let warsWon = 0;
+	let warsLost = 0;
+	for (const value of entries.slice(0, tornRankedWarHistoryLimit)) {
+		if (!isRecord(value)) throw new TornApiError('Torn returned unexpected faction war history. Please try again later.');
+		const { winner } = value;
+		if (winner === null) continue;
+		if (typeof winner !== 'number' || !Number.isSafeInteger(winner) || winner <= 0) {
+			throw new TornApiError('Torn returned unexpected faction war history. Please try again later.');
+		}
+		if (winner === factionId) warsWon += 1;
+		else warsLost += 1;
+	}
+	return { warsWon, warsLost };
 }
 
 function normalizeFactionChain(payload: Record<string, unknown>): TornFactionOverview['chain'] {
@@ -719,18 +760,20 @@ export async function getTornProfile(
 export async function getTornFactionOverview(storage: TornStorage | null, discordUserId: string): Promise<TornFactionOverview> {
 	const { apiKey, faction } = await getTornFactionApiContext(storage, discordUserId);
 
-	const [basicPayload, membersPayload, chainPayload, warsPayload, territoriesPayload] = await Promise.all([
+	const [basicPayload, membersPayload, chainPayload, warsPayload, territoriesPayload, rankedWarsPayload] = await Promise.all([
 		requestFactionEndpoint(apiKey, 'basic'),
 		requestFactionEndpoint(apiKey, 'members'),
 		requestFactionEndpoint(apiKey, 'chain'),
 		requestFactionEndpoint(apiKey, 'wars'),
-		requestFactionEndpoint(apiKey, 'territory')
+		requestFactionEndpoint(apiKey, 'territory'),
+		requestFactionEndpoint(apiKey, 'rankedwars', { limit: tornRankedWarHistoryLimit, sort: 'DESC' })
 	]);
 	const basic = normalizeFactionBasic(basicPayload);
 	if (basic.id !== faction.id) {
 		throw new TornApiError('Torn returned inconsistent faction data. Please try again later.');
 	}
 	const { wars, pacts } = normalizeFactionWars(warsPayload);
+	const rankedWarHistory = normalizeFactionWarHistorySummary(rankedWarsPayload, basic.id);
 
 	return {
 		basic,
@@ -738,6 +781,10 @@ export async function getTornFactionOverview(storage: TornStorage | null, discor
 		chain: normalizeFactionChain(chainPayload),
 		wars,
 		pacts,
-		territories: normalizeFactionTerritories(territoriesPayload)
+		territories: normalizeFactionTerritories(territoriesPayload),
+		warHistorySummary: {
+			currentRank: basic.rank.name,
+			...rankedWarHistory
+		}
 	};
 }

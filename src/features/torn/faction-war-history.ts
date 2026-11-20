@@ -1,8 +1,6 @@
 import { EmbedBuilder, escapeMarkdown } from 'discord.js';
 import type { TornStorage } from './service';
-import { getTornFactionApiContext, requestFactionEndpoint, TornApiError } from './service';
-
-const rankedWarHistoryLimit = 20;
+import { getTornFactionApiContext, requestFactionEndpoint, TornApiError, tornRankedWarHistoryLimit } from './service';
 
 interface TornRankedWarFaction {
 	id: number;
@@ -83,13 +81,13 @@ export function normalizeTornFactionWarHistory(payload: Record<string, unknown>,
 	});
 
 	wars.sort((left, right) => (right.end || right.start) - (left.end || left.start));
-	return { faction, wars: wars.slice(0, rankedWarHistoryLimit) };
+	return { faction, wars: wars.slice(0, tornRankedWarHistoryLimit) };
 }
 
 export async function getTornFactionWarHistory(storage: TornStorage | null, discordUserId: string): Promise<TornFactionWarHistory> {
 	const { apiKey, faction } = await getTornFactionApiContext(storage, discordUserId);
 	const payload = await requestFactionEndpoint(apiKey, 'rankedwars', {
-		limit: rankedWarHistoryLimit,
+		limit: tornRankedWarHistoryLimit,
 		sort: 'DESC'
 	});
 	return normalizeTornFactionWarHistory(payload, faction);
@@ -109,7 +107,7 @@ function resultLabel(war: TornFactionRankedWar, factionId: number): string {
 }
 
 function displayFaction(faction: TornRankedWarFaction): string {
-	return `${displayText(faction.name)}: ${faction.score.toLocaleString()} score / ${faction.chain.toLocaleString()} chain`;
+	return `${displayText(faction.name)}: ${faction.score.toLocaleString()} score`;
 }
 
 export function buildTornFactionWarHistoryEmbeds(history: TornFactionWarHistory): EmbedBuilder[] {
