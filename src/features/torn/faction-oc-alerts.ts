@@ -6,6 +6,8 @@ import {
 	getTornFactionOrganizedCrimes
 } from './faction-oc';
 import type { TornStorage } from './service';
+import { TornApiError } from './service';
+import type { PostgresStorage } from '../../lib/postgres-storage';
 
 const DELETE_PAGE_SIZE = 100;
 const BULK_DELETE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
@@ -115,6 +117,37 @@ interface ScheduledAlert {
 
 export class OrganizedCrimeAlertScheduler {
 	private readonly jobs = new Map<string, ScheduledAlert>();
+	private readonly restorationTimers = new Map<string, ReturnType<typeof setInterval>>();
+
+	public has(channelId: string): boolean {
+		return this.jobs.has(channelId);
+	}
+
+	public retryRestoration(channelId: string, restore: () => Promise<void>, logger: AlertRefreshLogger): void {
+		if (this.restorationTimers.has(channelId)) return;
+		let pending = false;
+		const timer = setInterval(() => {
+			if (pending) return;
+			pending = true;
+			void restore()
+				.then(() => {
+					clearInterval(timer);
+					this.restorationTimers.delete(channelId);
+				})
+				.catch((error: unknown) => {
+					logger.error(error, 'Failed to restore the organized-crime alert');
+					if (this.has(channelId)) {
+						clearInterval(timer);
+						this.restorationTimers.delete(channelId);
+					}
+				})
+				.finally(() => {
+					pending = false;
+				});
+		}, ORGANIZED_CRIME_REFRESH_INTERVAL_MS);
+		timer.unref();
+		this.restorationTimers.set(channelId, timer);
+	}
 
 	public start(channelId: string, discordUserId: string, refresh: (discordUserId: string) => Promise<void>, logger: AlertRefreshLogger): boolean {
 		const existing = this.jobs.get(channelId);
@@ -139,6 +172,45 @@ export class OrganizedCrimeAlertScheduler {
 		return this.execute(job, discordUserId);
 	}
 
+	public activate(
+		channelId: string,
+		discordUserId: string,
+		refresh: (discordUserId: string) => Promise<void>,
+		save: () => Promise<void>,
+		logger: AlertRefreshLogger
+	): Promise<void> {
+		let job = this.jobs.get(channelId);
+		if (!job) {
+			job = { discordUserId, refresh, logger };
+			this.jobs.set(channelId, job);
+		}
+		const current = job;
+		if (current.timer) this.schedule(current);
+		const previous = current.pending?.catch(() => undefined) ?? Promise.resolve();
+		const pending = previous.then(async () => {
+			await refresh(discordUserId);
+			await save();
+			if (this.jobs.get(channelId) !== current) return;
+			current.discordUserId = discordUserId;
+			current.refresh = refresh;
+			current.logger = logger;
+			if (!current.timer) this.schedule(current);
+		});
+		current.pending = pending;
+		void pending.then(
+			() => {
+				if (current.pending === pending) current.pending = undefined;
+			},
+			() => {
+				if (current.pending === pending) {
+					current.pending = undefined;
+					if (!current.timer && this.jobs.get(channelId) === current) this.jobs.delete(channelId);
+				}
+			}
+		);
+		return pending;
+	}
+
 	public stop(channelId: string): void {
 		const job = this.jobs.get(channelId);
 		if (!job) return;
@@ -148,6 +220,8 @@ export class OrganizedCrimeAlertScheduler {
 
 	public stopAll(): void {
 		for (const channelId of this.jobs.keys()) this.stop(channelId);
+		for (const timer of this.restorationTimers.values()) clearInterval(timer);
+		this.restorationTimers.clear();
 	}
 
 	private schedule(job: ScheduledAlert): void {
@@ -178,3 +252,59 @@ export class OrganizedCrimeAlertScheduler {
 }
 
 export const organizedCrimeAlertScheduler = new OrganizedCrimeAlertScheduler();
+
+interface AlertClient {
+	channels: { fetch(channelId: string): Promise<unknown> };
+}
+
+export async function getOrganizedCrimeAlertPlayerId(storage: PostgresStorage, discordUserId: string): Promise<number> {
+	const credential = await storage.getTornApi(discordUserId);
+	if (
+		typeof credential !== 'object' ||
+		credential === null ||
+		Array.isArray(credential) ||
+		typeof credential.playerId !== 'number' ||
+		!Number.isSafeInteger(credential.playerId) ||
+		credential.playerId <= 0
+	) {
+		throw new TornApiError('The alert owner needs a valid paired Torn account. Use `/pair` and run the organized-crimes command again.');
+	}
+	return credential.playerId;
+}
+
+export function createOrganizedCrimeAlertRefresh(
+	client: AlertClient,
+	storage: PostgresStorage,
+	channelId: string,
+	guildId: string,
+	playerId: number
+): (discordUserId: string) => Promise<void> {
+	return async (discordUserId) => {
+		if (!(await storage.isTornFeatureEnabled('faction-organized-crime'))) {
+			throw new TornApiError('Organized-crime alerts are disabled by the bot administrator.');
+		}
+		if ((await getOrganizedCrimeAlertPlayerId(storage, discordUserId)) !== playerId) {
+			throw new TornApiError('The alert owner changed Torn accounts. Run the organized-crimes command again to update the alert.');
+		}
+		const channel = await client.channels.fetch(channelId);
+		if (!isOrganizedCrimeAlertChannel(channel) || channel.guildId !== guildId) {
+			throw new TornApiError('The configured organized-crime alert channel is unavailable in the original server.');
+		}
+		await refreshOrganizedCrimeAlert(channel, storage, discordUserId);
+	};
+}
+
+export async function restoreOrganizedCrimeAlert(
+	client: AlertClient,
+	storage: PostgresStorage,
+	channelId: string,
+	logger: AlertRefreshLogger
+): Promise<boolean> {
+	const saved = await storage.getOrganizedCrimeAlert(channelId);
+	if (!saved) return false;
+	if (organizedCrimeAlertScheduler.has(channelId)) return false;
+	const refresh = createOrganizedCrimeAlertRefresh(client, storage, channelId, saved.guildId, saved.playerId);
+	organizedCrimeAlertScheduler.start(channelId, saved.discordUserId, refresh, logger);
+	await organizedCrimeAlertScheduler.refreshNow(channelId, saved.discordUserId);
+	return true;
+}

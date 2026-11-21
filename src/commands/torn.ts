@@ -2,7 +2,7 @@ import { ApplyOptions } from '@sapphire/decorators';
 import { ChatInputCommand, Command } from '@sapphire/framework';
 import type { ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { buildTornFactionInfoEmbeds, buildTornFactionMemberEmbeds } from '../features/torn/faction';
-import { isOrganizedCrimeAlertChannel, organizedCrimeAlertScheduler, refreshOrganizedCrimeAlert } from '../features/torn/faction-oc-alerts';
+import { createOrganizedCrimeAlertRefresh, getOrganizedCrimeAlertPlayerId, organizedCrimeAlertScheduler } from '../features/torn/faction-oc-alerts';
 import { buildTornFactionUnregisteredEmbeds, getTornFactionUnregisteredReport } from '../features/torn/faction-unregistered';
 import { buildTornFactionWarHistoryEmbeds, getTornFactionWarHistory } from '../features/torn/faction-war-history';
 import { buildTornFactionWarPayoutEmbeds, getTornFactionWarPayoutReport } from '../features/torn/faction-war-payout';
@@ -70,16 +70,18 @@ async function runTornFactionOrganizedCrimeAlert(interaction: ChatInputCommandIn
 	const { guildId } = interaction;
 	await interaction.deferReply({ flags: 'Ephemeral' });
 	try {
-		const channel = await interaction.client.channels.fetch(tornOcAlertChannelId);
-		if (!isOrganizedCrimeAlertChannel(channel) || channel.guildId !== guildId) {
-			throw new TornApiError('The configured organized-crime alert channel is unavailable in this server.');
-		}
-		const refresh = async (discordUserId: string) => {
-			await refreshOrganizedCrimeAlert(channel, context.storage, discordUserId);
-		};
-		organizedCrimeAlertScheduler.start(tornOcAlertChannelId, interaction.user.id, refresh, context.logger);
-		await organizedCrimeAlertScheduler.refreshNow(tornOcAlertChannelId, interaction.user.id);
-		return interaction.editReply(`Refreshed <#${tornOcAlertChannelId}>. Automatic updates are active hourly until the bot restarts.`);
+		const { storage } = context;
+		if (!storage) throw new TornApiError('Torn account pairing is not configured by the bot administrator. Please contact them for help.');
+		const playerId = await getOrganizedCrimeAlertPlayerId(storage, interaction.user.id);
+		const refresh = createOrganizedCrimeAlertRefresh(interaction.client, storage, tornOcAlertChannelId, guildId, playerId);
+		await organizedCrimeAlertScheduler.activate(
+			tornOcAlertChannelId,
+			interaction.user.id,
+			refresh,
+			() => storage.setOrganizedCrimeAlert(tornOcAlertChannelId, guildId, interaction.user.id, playerId),
+			context.logger
+		);
+		return interaction.editReply(`Refreshed <#${tornOcAlertChannelId}>. Automatic updates are active hourly and resume after a restart.`);
 	} catch (error) {
 		if (error instanceof TornApiError) return interaction.editReply(error.message);
 

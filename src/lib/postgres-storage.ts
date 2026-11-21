@@ -36,6 +36,15 @@ export class PostgresStorage {
 				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 			)
 		`);
+		await this.pool.query(`
+			CREATE TABLE IF NOT EXISTS torn_oc_alerts (
+				channel_id TEXT PRIMARY KEY,
+				guild_id TEXT NOT NULL,
+				discord_id TEXT NOT NULL,
+				player_id BIGINT NOT NULL,
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			)
+		`);
 
 		await this.pool.query(`
 			DO $$
@@ -92,6 +101,28 @@ export class PostgresStorage {
 			`INSERT INTO torn_feature_settings (feature, enabled) VALUES ($1, $2)
 			ON CONFLICT (feature) DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = NOW()`,
 			[feature, enabled]
+		);
+	}
+
+	public async getOrganizedCrimeAlert(channelId: string): Promise<{ guildId: string; discordUserId: string; playerId: number } | undefined> {
+		const result = await this.pool.query<{ guild_id: string; discord_id: string; player_id: string }>(
+			'SELECT guild_id, discord_id, player_id FROM torn_oc_alerts WHERE channel_id = $1',
+			[channelId]
+		);
+		const row = result.rows[0];
+		if (!row) return undefined;
+		const playerId = Number(row.player_id);
+		if (!Number.isSafeInteger(playerId) || playerId <= 0) throw new Error('Stored organized-crime alert player ID is invalid.');
+		return { guildId: row.guild_id, discordUserId: row.discord_id, playerId };
+	}
+
+	public async setOrganizedCrimeAlert(channelId: string, guildId: string, discordUserId: string, playerId: number): Promise<void> {
+		if (!Number.isSafeInteger(playerId) || playerId <= 0) throw new RangeError('Torn player ID must be a positive safe integer.');
+		await this.pool.query(
+			`INSERT INTO torn_oc_alerts (channel_id, guild_id, discord_id, player_id) VALUES ($1, $2, $3, $4)
+			ON CONFLICT (channel_id) DO UPDATE SET guild_id = EXCLUDED.guild_id, discord_id = EXCLUDED.discord_id,
+				player_id = EXCLUDED.player_id, updated_at = NOW()`,
+			[channelId, guildId, discordUserId, playerId]
 		);
 	}
 
